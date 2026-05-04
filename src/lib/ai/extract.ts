@@ -60,9 +60,9 @@ export async function computeMatchScore(jobData: JobData, profile: any, model: a
 
       Candidate Profile:
       - Summary: ${profile.summary || 'N/A'}
-      - Skills: ${profile.skills?.map((s: any) => \`\${s.name} (\${s.proficiency})\`).join(', ') || 'N/A'}
-      - Work Experience: ${profile.workExperience?.map((w: any) => \`\${w.title} at \${w.company} (\${w.start_date} to \${w.end_date || 'Present'})\`).join(' | ') || 'N/A'}
-      - Education: ${profile.education?.map((e: any) => \`\${e.degree} in \${e.field}\`).join(', ') || 'N/A'}
+      - Skills: ${profile.skills?.map((s: any) => `${s.name} (${s.proficiency})`).join(', ') || 'N/A'}
+      - Work Experience: ${profile.workExperience?.map((w: any) => `${w.title} at ${w.company} (${w.start_date} to ${w.end_date || 'Present'})`).join(' | ') || 'N/A'}
+      - Education: ${profile.education?.map((e: any) => `${e.degree} in ${e.field}`).join(', ') || 'N/A'}
     `,
   });
 

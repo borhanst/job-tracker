@@ -137,7 +137,7 @@ CREATE TABLE generated_documents (
 CREATE TABLE user_settings (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   provider ai_provider DEFAULT 'gemini',
-  model TEXT DEFAULT 'gemini-1.5-flash',
+  model TEXT DEFAULT 'gemini-2.5-flash',
   gemini_key_enc TEXT,
   openai_key_enc TEXT,
   anthropic_key_enc TEXT,

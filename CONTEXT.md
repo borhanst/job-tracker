@@ -5,6 +5,8 @@
 | Term | Definition |
 | :--- | :--- |
 | **JD Scraper** | The automated system that extracts raw text from job listing URLs. |
+| **Browser JD Capture** | A Chrome extension intake path that captures user-selected job description content from the current webpage, preserving basic section structure, and sends it into the Add Job review flow. |
+| **JD Handoff** | A temporary, signed-in-user transfer of a captured job URL and raw job description text from Browser JD Capture into the Add Job review flow. |
 | **AI Extraction** | The process of converting raw job description text into structured data (company, title, skills, etc.). |
 | **Match Score** | A percentage (0-100%) calculated by AI that estimates how well a user's master profile aligns with a specific job description. |
 | **Master Profile** | The comprehensive, single source of truth for a user's professional data (experience, skills, education) used to seed all AI generations. |
@@ -16,3 +18,12 @@
 | Term | Definition |
 | :--- | :--- |
 | **Professional Futurism** | The visual style combining tech-forward elements (dark mode, glassmorphism) with professional clarity and high-trust aesthetics. |
+| **Landing Page Promise** | Turn any job listing into a tracked application with an AI-tailored CV in minutes. |
+| **Primary Landing Audience** | Solo job seekers applying to many roles who know generic CVs are reducing their chances. |
+| **Hero Workflow Scene** | A product-style first-viewport visual showing JD URL capture, AI Extraction, Match Score, Tailored CV preview, and Application Pipeline status together. |
+| **Grounded Landing Copy** | Landing page language that emphasizes saving jobs, understanding fit, tailoring CVs, and tracking next steps without exaggerated success claims. |
+| **Product Preview Landing** | A landing page approach that sells the app through realistic interface scenes rather than abstract brand storytelling. |
+| **Landing CTA Section** | A closing section that invites the user to start by turning their first job listing into a tracked application and Tailored CV. |
+| **Landing Footer** | A compact footer with brand, product links, account links, social icons, and trust-oriented legal links. |
+| **Primary Landing CTA** | The main call-to-action label is “Get Started”. |
+| **Landing Social Icons** | The footer social icon set is LinkedIn, X, and Instagram. |

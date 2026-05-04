@@ -84,9 +84,9 @@ export async function getApplicationById(id: string) {
 
   if (!user) return null;
 
-  const { data, error } = await supabase
+  const { data: application, error } = await supabase
     .from('applications')
-    .select('*, generated_documents(*), profiles(*)')
+    .select('*, generated_documents(*)')
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
@@ -96,9 +96,18 @@ export async function getApplicationById(id: string) {
     return null;
   }
 
-  // Flatten profiles array from Supabase select
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error('Error fetching profile for application:', profileError);
+  }
+
   return {
-    ...data,
-    profile: data.profiles
+    ...application,
+    profile
   };
 }

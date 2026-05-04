@@ -27,7 +27,7 @@ export default function AuthForm({ type }: AuthFormProps) {
 
     try {
       if (type === 'register') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -37,7 +37,12 @@ export default function AuthForm({ type }: AuthFormProps) {
           },
         });
         if (error) throw error;
-        alert('Check your email for the confirmation link!');
+        if (data.session) {
+          router.push('/onboarding');
+          router.refresh();
+        } else {
+          setError('Check your email for the confirmation link, then continue setup from the link.');
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,

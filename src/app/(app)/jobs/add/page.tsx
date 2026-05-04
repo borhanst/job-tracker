@@ -1,19 +1,18 @@
 import React from 'react';
 import AddJobWizard from '@/components/jobs/AddJobWizard';
+import { PlusCircle } from 'lucide-react';
+import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/ProtectedPage';
 
 export default function AddJobPage() {
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Add New Application</h1>
-        <p className="text-slate-500">
-          Scrape or paste a job description and let AI analyze the requirements for you.
-        </p>
-      </div>
-
-      <div className="mt-8">
-        <AddJobWizard />
-      </div>
-    </div>
+    <ProtectedPage>
+      <ProtectedPageHeader
+        eyebrow="New opportunity"
+        title="Add New Application"
+        description="Bring in a listing, let AI extract the role details, then save the application with a first-pass match score."
+        icon={PlusCircle}
+      />
+      <AddJobWizard />
+    </ProtectedPage>
   );
 }

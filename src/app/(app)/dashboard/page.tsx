@@ -1,6 +1,8 @@
 import { getDashboardStats } from '@/lib/dashboard/actions';
 import DashboardView from '@/components/dashboard/DashboardView';
 import { redirect } from 'next/navigation';
+import { LayoutDashboard } from 'lucide-react';
+import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/ProtectedPage';
 
 export default async function DashboardPage() {
   const stats = await getDashboardStats();
@@ -27,13 +29,14 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-slate-500">Welcome back! Here's a summary of your job hunt performance.</p>
-      </div>
-
+    <ProtectedPage maxWidth="wide">
+      <ProtectedPageHeader
+        eyebrow="Command center"
+        title="Dashboard"
+        description="Welcome back. Track the shape of your job hunt, spot momentum, and jump into the next best action."
+        icon={LayoutDashboard}
+      />
       <DashboardView stats={stats} />
-    </div>
+    </ProtectedPage>
   );
 }

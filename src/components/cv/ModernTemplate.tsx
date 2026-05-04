@@ -128,7 +128,7 @@ export const ModernTemplate = ({ data }: ModernTemplateProps) => {
                 <View style={styles.expHeader}>
                   <Text style={styles.company}>{exp.company}</Text>
                   <Text style={styles.date}>
-                    {rawExp ? \`\${rawExp.start_date} - \${rawExp.is_current ? 'Present' : rawExp.end_date}\` : ''}
+                    {rawExp ? `${rawExp.start_date} - ${rawExp.is_current ? 'Present' : rawExp.end_date}` : ''}
                   </Text>
                 </View>
                 <Text style={styles.title}>{exp.title}</Text>

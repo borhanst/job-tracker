@@ -1,6 +1,8 @@
 import React from 'react';
 import { getFullProfile } from '@/lib/profile/actions';
 import ProfileClientWrapper from '@/components/profile/ProfileClientWrapper';
+import { UserCircle } from 'lucide-react';
+import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/ProtectedPage';
 
 export default async function ProfilePage() {
   const profileData = await getFullProfile();
@@ -14,15 +16,14 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
-        <p className="text-slate-500">
-          Complete your profile to help AI generate highly tailored CVs and cover letters for your job applications.
-        </p>
-      </div>
-
+    <ProtectedPage>
+      <ProtectedPageHeader
+        eyebrow="Career signal"
+        title="Your Profile"
+        description="Keep the source of truth sharp so every match score, tailored CV, and cover letter has better raw material."
+        icon={UserCircle}
+      />
       <ProfileClientWrapper initialProfile={profileData} />
-    </div>
+    </ProtectedPage>
   );
 }

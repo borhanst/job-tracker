@@ -15,12 +15,13 @@ import {
   History,
   CheckCircle2,
   Trash2,
-  ArrowRight
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateApplicationStatus } from '@/lib/jobs/actions';
 import CVBuilder from '@/components/cv/CVBuilder';
 import CoverLetterBuilder from '@/components/cv/CoverLetterBuilder';
+import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/ProtectedPage';
 
 const statuses = [
   'saved', 'applied', 'phone_screen', 'interview', 'offer', 'accepted', 'rejected'
@@ -50,9 +51,8 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
   const { job_data } = application;
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
+    <ProtectedPage maxWidth="wide">
+      <div className="protected-page__back">
         <Link 
           href="/applications" 
           className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors w-fit"
@@ -60,18 +60,15 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
           <ChevronLeft size={20} />
           Back to Applications
         </Link>
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-4xl font-black mb-2">{job_data.title}</h1>
-            <div className="flex flex-wrap gap-4 text-slate-500 font-medium">
-              <span className="flex items-center gap-1.5"><Building2 size={18} /> {job_data.company}</span>
-              <span className="flex items-center gap-1.5"><MapPin size={18} /> {job_data.location}</span>
-              <span className="flex items-center gap-1.5"><Briefcase size={18} /> {job_data.type}</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
+      </div>
+
+      <ProtectedPageHeader
+        eyebrow="Application detail"
+        title={job_data.title}
+        description={`${job_data.company} ${job_data.location ? `in ${job_data.location}` : ''}`}
+        icon={Briefcase}
+        actions={
+          <>
             <select
               value={status}
               onChange={(e) => handleStatusChange(e.target.value)}
@@ -83,9 +80,15 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
             <button className="bg-red-50 text-red-600 p-2.5 rounded-xl hover:bg-red-100 transition-all">
               <Trash2 size={20} />
             </button>
-          </div>
+          </>
+        }
+      >
+        <div className="flex flex-wrap gap-4 text-slate-500 font-medium">
+          <span className="flex items-center gap-1.5"><Building2 size={18} /> {job_data.company}</span>
+          <span className="flex items-center gap-1.5"><MapPin size={18} /> {job_data.location}</span>
+          <span className="flex items-center gap-1.5"><Briefcase size={18} /> {job_data.type}</span>
         </div>
-      </div>
+      </ProtectedPageHeader>
 
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -213,6 +216,6 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
           )}
         </div>
       </div>
-    </div>
+    </ProtectedPage>
   );
 }

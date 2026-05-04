@@ -1,112 +1,317 @@
-import React from 'react';
-import Hero from '@/components/landing/Hero';
-import CVMorph from '@/components/landing/CVMorph';
-import Features from '@/components/landing/Features';
-import Logo from '@/components/brand/Logo';
-import Link from 'next/link';
+import Link from "next/link";
+import {
+  ArrowRight,
+  BarChart3,
+  BriefcaseBusiness,
+  Check,
+  ChevronRight,
+  ClipboardList,
+  FileSearch,
+  FileText,
+  KeyRound,
+  LockKeyhole,
+  PanelsTopLeft,
+  ShieldCheck,
+  Sparkles,
+  WandSparkles,
+} from "lucide-react";
+import Logo from "@/components/brand/Logo";
+import styles from "./page.module.css";
+
+const workflow = [
+  {
+    title: "Paste a JD URL",
+    body: "Start with the job listing instead of another blank tracker row.",
+    icon: FileSearch,
+  },
+  {
+    title: "Review AI Extraction",
+    body: "Company, role, skills, salary notes, and requirements become structured fields.",
+    icon: Sparkles,
+  },
+  {
+    title: "Generate a Tailored CV",
+    body: "Your Master Profile is shaped into a focused CV for the role.",
+    icon: FileText,
+  },
+  {
+    title: "Track the next step",
+    body: "Move the application through Saved, Applied, Interview, Offer, and beyond.",
+    icon: ClipboardList,
+  },
+];
+
+const features = [
+  {
+    title: "JD Scraper",
+    body: "Capture raw job description text from a listing URL, with manual paste as a fallback.",
+    icon: FileSearch,
+  },
+  {
+    title: "AI Extraction",
+    body: "Turn messy job text into the details you actually need to compare roles.",
+    icon: WandSparkles,
+  },
+  {
+    title: "Match Score",
+    body: "See an AI estimate of how well your Master Profile aligns with the job.",
+    icon: BarChart3,
+  },
+  {
+    title: "Tailored CV",
+    body: "Generate a job-specific CV that highlights the most relevant experience.",
+    icon: FileText,
+  },
+  {
+    title: "Application Pipeline",
+    body: "Keep every role moving through a clear job-search workflow.",
+    icon: PanelsTopLeft,
+  },
+  {
+    title: "AI Provider Control",
+    body: "Bring your own provider and keep usage under your account.",
+    icon: KeyRound,
+  },
+];
+
+const pipeline = ["Saved", "Applied", "Interview", "Offer"];
 
 export default function RootPage() {
   return (
-    <div className="flex flex-col w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full h-20 z-[100] flex items-center border-b border-slate-100 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md">
-        <div className="container-custom flex justify-between items-center w-full">
-          <Link href="/" className="flex items-center gap-3 group">
-            <Logo size={36} />
-            <span className="font-bold text-2xl tracking-tight text-slate-900 dark:text-white">Applynexis</span>
+    <div className={styles.page}>
+      <header className={styles.navWrap}>
+        <nav className={styles.nav} aria-label="Primary navigation">
+          <Link href="/" className={styles.brand} aria-label="Applynexis home">
+            <Logo size={34} />
+            <span>Applynexis</span>
           </Link>
-          
-          <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-400">
-            <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
-            <a href="#about" className="hover:text-blue-600 transition-colors">How it works</a>
+
+          <div className={styles.navLinks}>
+            <a href="#workflow">Workflow</a>
+            <a href="#features">Features</a>
+            <a href="#trust">Privacy</a>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors">Login</Link>
-            <Link href="/register" className="btn-primary px-6 py-2.5 rounded-xl text-sm">Get Started</Link>
+          <div className={styles.navActions}>
+            <Link href="/login" className={styles.loginLink}>
+              Login
+            </Link>
+            <Link href="/register" className={styles.smallCta}>
+              Get Started
+            </Link>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
-      <main className="flex-1">
-        <Hero />
-        <div id="about">
-          <CVMorph />
-        </div>
-        <div id="features">
-          <Features />
-        </div>
-
-        {/* Final CTA */}
-        <section className="py-32 relative overflow-hidden">
-          <div className="container-custom relative z-20 text-center">
-            <div className="max-w-3xl mx-auto p-12 rounded-[2.5rem] bg-slate-900 dark:bg-slate-900 text-white shadow-2xl relative overflow-hidden">
-              {/* Background gradient blur */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] -mr-32 -mt-32" />
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] -ml-32 -mb-32" />
-
-              <h2 className="text-4xl lg:text-5xl font-bold mb-6 relative z-10">
-                Ready to accelerate your career?
-              </h2>
-              <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto relative z-10">
-                Join thousands of professionals using Applynexis to automate their job hunt and land more interviews.
+      <main>
+        <section className={styles.hero}>
+          <div className={styles.heroGrid}>
+            <div className={styles.heroCopy}>
+              <div className={styles.eyebrow}>
+                <BriefcaseBusiness size={16} />
+                <span>Built for high-volume job searches</span>
+              </div>
+              <h1>Turn any job listing into a tracked application with an AI-tailored CV.</h1>
+              <p>
+                Save the role, understand the fit, generate a focused CV, and keep the next
+                step visible without rebuilding your process in a spreadsheet.
               </p>
-              <Link href="/register" className="btn-primary text-lg px-10 py-4 rounded-2xl relative z-10">
-                Join Applynexis Now
-              </Link>
+              <div className={styles.heroActions}>
+                <Link href="/register" className={styles.primaryCta}>
+                  Get Started
+                  <ArrowRight size={18} />
+                </Link>
+                <Link href="/login" className={styles.secondaryCta}>
+                  Sign in
+                </Link>
+              </div>
+              <div className={styles.proofRow} aria-label="Product capabilities">
+                <span>JD Scraper</span>
+                <span>AI Extraction</span>
+                <span>Tailored CV</span>
+              </div>
             </div>
+
+            <div className={styles.heroScene} aria-label="Applynexis workflow preview">
+              <div className={styles.sceneHeader}>
+                <span>New application</span>
+                <span className={styles.liveBadge}>AI ready</span>
+              </div>
+
+              <div className={styles.urlBar}>
+                <FileSearch size={18} />
+                <span>https://jobs.example.com/senior-product-engineer</span>
+                <button type="button">Import</button>
+              </div>
+
+              <div className={styles.sceneGrid}>
+                <div className={styles.extractionPanel}>
+                  <div className={styles.panelTitle}>
+                    <Sparkles size={16} />
+                    <span>AI Extraction</span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Company</dt>
+                      <dd>Northstar Labs</dd>
+                    </div>
+                    <div>
+                      <dt>Role</dt>
+                      <dd>Senior Product Engineer</dd>
+                    </div>
+                    <div>
+                      <dt>Required skills</dt>
+                      <dd>React, AI SDK, Postgres</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className={styles.scorePanel}>
+                  <span>Match Score</span>
+                  <strong>86%</strong>
+                  <p>Strong profile overlap with product engineering and AI workflows.</p>
+                </div>
+              </div>
+
+              <div className={styles.cvPreview}>
+                <div>
+                  <span className={styles.docLabel}>Tailored CV</span>
+                  <h2>Product Engineer focused on AI-enabled workflows</h2>
+                </div>
+                <div className={styles.cvLines} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+
+              <div className={styles.pipeline} aria-label="Application Pipeline preview">
+                {pipeline.map((stage, index) => (
+                  <div key={stage} className={index === 1 ? styles.activeStage : undefined}>
+                    <span>{stage}</span>
+                    {index < pipeline.length - 1 ? <ChevronRight size={15} /> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="workflow" className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.kicker}>Workflow</span>
+            <h2>From listing to next step, without losing the thread.</h2>
+            <p>
+              Applynexis keeps the job description, fit signal, generated documents, and
+              Application Pipeline in one connected flow.
+            </p>
+          </div>
+          <div className={styles.workflowGrid}>
+            {workflow.map((item, index) => (
+              <article key={item.title} className={styles.workflowItem}>
+                <div className={styles.stepNumber}>0{index + 1}</div>
+                <item.icon size={22} />
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="features" className={styles.sectionAlt}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.kicker}>Feature proof</span>
+            <h2>The pieces that make a high-volume search manageable.</h2>
+          </div>
+          <div className={styles.featureGrid}>
+            {features.map((feature) => (
+              <article key={feature.title} className={styles.featureItem}>
+                <feature.icon size={22} />
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="trust" className={styles.trustSection}>
+          <div className={styles.trustCopy}>
+            <span className={styles.kicker}>Privacy and control</span>
+            <h2>Your search data should stay yours.</h2>
+            <p>
+              Applynexis is designed around private job-search data, encrypted API keys,
+              and bring-your-own AI provider settings.
+            </p>
+          </div>
+          <div className={styles.trustList}>
+            <div>
+              <ShieldCheck size={22} />
+              <span>Row-level access patterns for private application data</span>
+            </div>
+            <div>
+              <LockKeyhole size={22} />
+              <span>API keys are treated as sensitive account settings</span>
+            </div>
+            <div>
+              <Check size={22} />
+              <span>Match Score is presented as an AI estimate, not a guarantee</span>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.ctaSection}>
+          <div className={styles.ctaInner}>
+            <span className={styles.kicker}>Start with one listing</span>
+            <h2>Bring your next job description into focus.</h2>
+            <p>
+              Create an account, add a job listing, and let Applynexis organize the
+              application around the role.
+            </p>
+            <Link href="/register" className={styles.primaryCta}>
+              Get Started
+              <ArrowRight size={18} />
+            </Link>
           </div>
         </section>
       </main>
 
-      <footer className="py-16 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-        <div className="container-custom flex flex-col md:flex-row justify-between items-start gap-12">
-          <div className="max-w-xs">
-            <div className="flex items-center gap-3 mb-6">
-              <Logo size={32} />
-              <span className="font-bold text-xl tracking-tight">Applynexis</span>
-            </div>
-            <p className="text-slate-500 text-sm leading-relaxed mb-6">
-              Empowering job seekers with AI-driven tools to track, manage, and win their next career move.
-            </p>
-            <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-blue-500 hover:text-white transition-all cursor-pointer">
-                <span className="font-bold text-xs">𝕏</span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-blue-500 hover:text-white transition-all cursor-pointer">
-                <span className="font-bold text-xs">in</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-12">
-            <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Product</h4>
-              <ul className="space-y-4 text-sm text-slate-500">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Scraper</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Company</h4>
-              <ul className="space-y-4 text-sm text-slate-500">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Legal</h4>
-              <ul className="space-y-4 text-sm text-slate-500">
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-blue-600 transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
+      <footer className={styles.footer}>
+        <div className={styles.footerBrand}>
+          <Link href="/" className={styles.brand} aria-label="Applynexis home">
+            <Logo size={32} />
+            <span>Applynexis</span>
+          </Link>
+          <p>AI-assisted job tracking for people applying to many roles with care.</p>
+          <div className={styles.socials}>
+            <a href="#" aria-label="Applynexis on LinkedIn">
+              <span aria-hidden="true">in</span>
+            </a>
+            <a href="#" aria-label="Applynexis on X">
+              <span aria-hidden="true">X</span>
+            </a>
+            <a href="#" aria-label="Applynexis on Instagram">
+              <span aria-hidden="true">IG</span>
+            </a>
           </div>
         </div>
-        <div className="container-custom mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-slate-400 text-xs">
-          © 2026 Applynexis AI. Engineered for excellence.
+
+        <div className={styles.footerLinks}>
+          <div>
+            <h2>Product</h2>
+            <a href="#features">Features</a>
+            <a href="#workflow">Workflow</a>
+            <a href="#trust">Privacy</a>
+          </div>
+          <div>
+            <h2>Account</h2>
+            <Link href="/login">Login</Link>
+            <Link href="/register">Register</Link>
+          </div>
+          <div>
+            <h2>Legal</h2>
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+          </div>
         </div>
       </footer>
     </div>

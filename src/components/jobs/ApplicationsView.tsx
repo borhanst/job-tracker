@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
   LayoutList, 
@@ -19,6 +19,10 @@ const statuses = [
   'saved', 'applied', 'phone_screen', 'interview', 'offer', 'accepted', 'rejected'
 ];
 
+type ApplicationsViewMode = 'list' | 'kanban';
+
+const APPLICATIONS_VIEW_STORAGE_KEY = 'job-tracker:applications-view';
+
 const statusColors: Record<string, string> = {
   saved: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   applied: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
@@ -34,9 +38,22 @@ interface ApplicationsViewProps {
 }
 
 export default function ApplicationsView({ initialApplications }: ApplicationsViewProps) {
-  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [view, setView] = useState<ApplicationsViewMode>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  useEffect(() => {
+    const savedView = window.localStorage.getItem(APPLICATIONS_VIEW_STORAGE_KEY);
+
+    if (savedView === 'list' || savedView === 'kanban') {
+      setView(savedView);
+    }
+  }, []);
+
+  const handleViewChange = (nextView: ApplicationsViewMode) => {
+    setView(nextView);
+    window.localStorage.setItem(APPLICATIONS_VIEW_STORAGE_KEY, nextView);
+  };
 
   const filteredApps = initialApplications.filter(app => {
     const matchesSearch = app.job_data.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -51,7 +68,7 @@ export default function ApplicationsView({ initialApplications }: ApplicationsVi
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl w-fit">
           <button
-            onClick={() => setView('list')}
+            onClick={() => handleViewChange('list')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               view === 'list' ? 'bg-white dark:bg-slate-800 shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
@@ -60,7 +77,7 @@ export default function ApplicationsView({ initialApplications }: ApplicationsVi
             List
           </button>
           <button
-            onClick={() => setView('kanban')}
+            onClick={() => handleViewChange('kanban')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               view === 'kanban' ? 'bg-white dark:bg-slate-800 shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}

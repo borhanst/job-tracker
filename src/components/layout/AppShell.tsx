@@ -4,10 +4,12 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
+import ProfileCompletionReminder from './ProfileCompletionReminder';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isFullPage = pathname === '/' ||
+                    pathname.startsWith('/onboarding') ||
                     pathname.startsWith('/login') || 
                     pathname.startsWith('/register') || 
                     pathname.startsWith('/forgot-password');
@@ -21,9 +23,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="protected-shell">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto relative">
+      <main className="protected-shell__main">
+        <div className="protected-shell__reminder">
+          <ProfileCompletionReminder />
+        </div>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
@@ -31,7 +36,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="p-8 pb-20"
+            className="protected-shell__content"
           >
             {children}
           </motion.div>

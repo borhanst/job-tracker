@@ -19,6 +19,12 @@ export async function getModelInstance(userId: string) {
   }
 
   const { provider, model } = settings;
+  const providerModels = settings.provider_models || {};
+  const configuredModel = providerModels[provider] || model;
+  const modelName =
+    provider === 'gemini' && configuredModel?.startsWith('gemini-1.5')
+      ? 'gemini-2.5-flash'
+      : configuredModel;
 
   let apiKey = '';
 
@@ -29,7 +35,12 @@ export async function getModelInstance(userId: string) {
 
   // Fallback to environment variables if user hasn't set a key
   if (!apiKey) {
-    if (provider === 'gemini') apiKey = process.env.GOOGLE_GENERINI_API_KEY || '';
+    if (provider === 'gemini') {
+      apiKey =
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+        process.env.GOOGLE_GENERINI_API_KEY ||
+        '';
+    }
     if (provider === 'openai') apiKey = process.env.OPENAI_API_KEY || '';
     if (provider === 'anthropic') apiKey = process.env.ANTHROPIC_API_KEY || '';
     if (provider === 'groq') apiKey = process.env.GROQ_API_KEY || '';
@@ -42,16 +53,16 @@ export async function getModelInstance(userId: string) {
   switch (provider) {
     case 'gemini':
       const google = createGoogleGenerativeAI({ apiKey });
-      return google(model);
+      return google(modelName);
     case 'openai':
       const openai = createOpenAI({ apiKey });
-      return openai(model);
+      return openai(modelName);
     case 'anthropic':
       const anthropic = createAnthropic({ apiKey });
-      return anthropic(model);
+      return anthropic(modelName);
     case 'groq':
       const groq = createGroq({ apiKey, baseURL: 'https://api.groq.com/openai/v1' });
-      return groq(model);
+      return groq(modelName);
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }

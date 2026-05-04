@@ -28,7 +28,7 @@ export async function generateTailoredCV(jobData: any, profile: any, model: any)
       - Name: ${profile.full_name}
       - Summary: ${profile.summary}
       - Skills: ${profile.skills?.map((s: any) => s.name).join(', ')}
-      - Experience: ${profile.workExperience?.map((w: any) => \`\${w.title} at \${w.company}: \${w.description}\`).join(' | ')}
+      - Experience: ${profile.workExperience?.map((w: any) => `${w.title} at ${w.company}: ${w.description}`).join(' | ')}
       
       Task:
       1. Rewrite the professional summary to highlight the most relevant experience for this job.

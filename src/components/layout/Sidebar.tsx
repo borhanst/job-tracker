@@ -58,29 +58,25 @@ export default function Sidebar() {
 
   return (
     <aside 
-      className={`glass h-screen flex flex-col transition-all duration-300 border-r ${
-        isCollapsed ? 'w-[80px]' : 'w-[260px]'
-      }`}
+      className={`app-sidebar${isCollapsed ? ' app-sidebar--collapsed' : ''}`}
+      aria-label="Primary navigation"
     >
-      <div className="p-6 flex items-center gap-3">
-        <Logo size={32} />
-        {!isCollapsed && (
-          <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Applynexis
-          </span>
-        )}
-      </div>
-      <div className="px-6 flex justify-end">
+      <div className="app-sidebar__brand">
+        <Link href="/dashboard" className="app-sidebar__brand-link" aria-label="Applynexis dashboard">
+          <Logo size={34} />
+          <span className="app-sidebar__brand-text">Applynexis</span>
+        </Link>
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+          className="app-sidebar__collapse"
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 flex flex-col gap-2">
+      <nav className="app-sidebar__nav">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -89,35 +85,40 @@ export default function Sidebar() {
             <Link 
               key={item.name} 
               href={item.href}
-              className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
-                isActive 
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20' 
-                  : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 dark:text-slate-400'
-              }`}
+              className={`app-sidebar__item${isActive ? ' is-active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+              title={item.name}
             >
-              <Icon size={24} />
-              {!isCollapsed && <span className="font-medium">{item.name}</span>}
+              <span className="app-sidebar__icon">
+                <Icon size={20} />
+              </span>
+              <span className="app-sidebar__label">{item.name}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Sidebar Footer */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+      <div className="app-sidebar__footer">
         <button 
           onClick={toggleTheme}
-          className="flex items-center gap-4 p-3 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 dark:text-slate-400 transition-all w-full"
+          className="app-sidebar__item app-sidebar__button"
+          title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
         >
-          {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
-          {!isCollapsed && <span className="font-medium">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>}
+          <span className="app-sidebar__icon">
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          </span>
+          <span className="app-sidebar__label">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
         </button>
         
         <button 
           onClick={handleSignOut}
-          className="flex items-center gap-4 p-3 rounded-lg text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all w-full"
+          className="app-sidebar__item app-sidebar__button app-sidebar__button--danger"
+          title="Sign Out"
         >
-          <LogOut size={24} />
-          {!isCollapsed && <span className="font-medium">Sign Out</span>}
+          <span className="app-sidebar__icon">
+            <LogOut size={20} />
+          </span>
+          <span className="app-sidebar__label">Sign Out</span>
         </button>
       </div>
     </aside>

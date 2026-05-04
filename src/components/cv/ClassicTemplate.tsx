@@ -76,7 +76,7 @@ export const ClassicTemplate = ({ data }: any) => {
               <View key={i} style={styles.expItem}>
                 <View style={styles.row}>
                   <Text style={{ fontWeight: 'bold' }}>{exp.company}</Text>
-                  <Text>{rawExp ? \`\${rawExp.start_date} - \${rawExp.is_current ? 'Present' : rawExp.end_date}\` : ''}</Text>
+                  <Text>{rawExp ? `${rawExp.start_date} - ${rawExp.is_current ? 'Present' : rawExp.end_date}` : ''}</Text>
                 </View>
                 <Text style={{ fontStyle: 'italic', marginBottom: 2 }}>{exp.title}</Text>
                 {exp.description.split('\n').map((b: string, j: number) => (
@@ -95,7 +95,7 @@ export const ClassicTemplate = ({ data }: any) => {
                 <Text style={{ fontWeight: 'bold' }}>{edu.institution}</Text>
                 <Text>{edu.start_date} - {edu.end_date || 'Present'}</Text>
               </View>
-              <Text>{edu.degree} in {edu.field} {edu.gpa ? \`| GPA: \${edu.gpa}\` : ''}</Text>
+              <Text>{edu.degree} in {edu.field} {edu.gpa ? `| GPA: ${edu.gpa}` : ''}</Text>
             </View>
           ))}
         </View>
