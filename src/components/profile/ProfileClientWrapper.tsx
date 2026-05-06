@@ -7,6 +7,7 @@ import SummaryInfo from './SummaryInfo';
 import ExperienceList from './ExperienceList';
 import EducationList from './EducationList';
 import ProfileSectionList from './ProfileSectionList';
+import { BriefcaseBusiness, GraduationCap, Layers3, Sparkles, UserRoundCheck } from 'lucide-react';
 
 interface ProfileClientWrapperProps {
   initialProfile: any;
@@ -14,6 +15,14 @@ interface ProfileClientWrapperProps {
 
 export default function ProfileClientWrapper({ initialProfile }: ProfileClientWrapperProps) {
   const [activeSection, setActiveSection] = useState('personal');
+  const completion = initialProfile.profile_completion_percentage || 0;
+  const totalSignal =
+    (initialProfile.workExperience?.length || 0) +
+    (initialProfile.education?.length || 0) +
+    (initialProfile.skills?.length || 0) +
+    (initialProfile.projects?.length || 0) +
+    (initialProfile.certifications?.length || 0) +
+    (initialProfile.languages?.length || 0);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -105,15 +114,51 @@ export default function ProfileClientWrapper({ initialProfile }: ProfileClientWr
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      <div className="lg:col-span-1">
-        <div className="sticky top-8">
-          <ProfileTabs activeSection={activeSection} setActiveSection={setActiveSection} />
+    <section className="profile-workbench">
+      <div className="profile-studio">
+        <div className="profile-studio__identity">
+          <div className="profile-avatar">
+            {(initialProfile.full_name || initialProfile.email || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <span><Sparkles size={15} /> Profile source</span>
+            <h2>{initialProfile.full_name || 'Your career profile'}</h2>
+            <p>{initialProfile.summary || 'Build the baseline profile your tailored CVs and cover letters will use.'}</p>
+          </div>
+        </div>
+
+        <div className="profile-studio__metrics" aria-label="Profile metrics">
+          <div>
+            <UserRoundCheck size={18} />
+            <strong>{completion}%</strong>
+            <span>complete</span>
+          </div>
+          <div>
+            <BriefcaseBusiness size={18} />
+            <strong>{initialProfile.workExperience?.length || 0}</strong>
+            <span>roles</span>
+          </div>
+          <div>
+            <GraduationCap size={18} />
+            <strong>{initialProfile.education?.length || 0}</strong>
+            <span>education</span>
+          </div>
+          <div>
+            <Layers3 size={18} />
+            <strong>{totalSignal}</strong>
+            <span>signals</span>
+          </div>
         </div>
       </div>
-      <div className="lg:col-span-3">
-        {renderSection()}
+
+      <div className="profile-layout">
+        <aside className="profile-layout__nav">
+          <ProfileTabs activeSection={activeSection} setActiveSection={setActiveSection} />
+        </aside>
+        <div className="profile-layout__content">
+          {renderSection()}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

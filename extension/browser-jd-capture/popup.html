@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browser JD Capture</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="capture">
+      <header class="capture__header">
+        <span>Applynexis</span>
+        <h1>Browser JD Capture</h1>
+      </header>
+
+      <section class="capture__actions">
+        <button id="add-selection" class="button button--primary" type="button">
+          Add Selection
+        </button>
+        <button id="clear-review" class="button button--ghost" type="button">
+          Clear
+        </button>
+      </section>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section class="review">
+        <div class="review__top">
+          <span>Capture Review</span>
+          <strong id="section-count">0 sections</strong>
+        </div>
+        <ol id="section-list" class="section-list"></ol>
+      </section>
+
+      <footer class="capture__footer">
+        <button id="send-to-app" class="button button--send" type="button">
+          Send to Applynexis
+        </button>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

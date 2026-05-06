@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { 
   Sparkles, 
@@ -10,15 +10,20 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle,
-  Eye
+  Eye,
+  RefreshCw,
+  WandSparkles
 } from 'lucide-react';
 import { ModernTemplate } from './ModernTemplate';
 import { ClassicTemplate } from './ClassicTemplate';
+import { ExecutiveTemplate } from './ExecutiveTemplate';
+import { CompactTemplate } from './CompactTemplate';
+import { BennettTemplate } from './BennettTemplate';
 
 // Dynamically import PDFViewer to avoid SSR issues
 const PDFViewer = dynamic(
   () => import('@react-pdf/renderer').then((mod) => mod.PDFViewer),
-  { ssr: false, loading: () => <div className="h-[600px] bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center">Loading PDF Preview...</div> }
+  { ssr: false, loading: () => <div className="cv-preview-loading">Loading PDF preview...</div> }
 );
 
 const PDFDownloadLink = dynamic(
@@ -31,10 +36,33 @@ interface CVBuilderProps {
   initialData?: any;
 }
 
+type CVTemplateKey = 'modern' | 'classic' | 'executive' | 'compact' | 'bennett';
+
+const templateOptions: {
+  key: CVTemplateKey;
+  name: string;
+  description: string;
+  icon: typeof Layout;
+}[] = [
+  { key: 'modern', name: 'Modern Teal', description: 'Polished, balanced, ATS-friendly', icon: Layout },
+  { key: 'classic', name: 'Classic Serif', description: 'Traditional, formal, recruiter-safe', icon: FileText },
+  { key: 'executive', name: 'Executive Slate', description: 'Leadership-forward sidebar layout', icon: Sparkles },
+  { key: 'compact', name: 'Compact Orange', description: 'Dense one-page impact format', icon: WandSparkles },
+  { key: 'bennett', name: 'Bennett Minimal', description: 'Centered monochrome layout like the reference', icon: FileText },
+];
+
+const templateComponents = {
+  modern: ModernTemplate,
+  classic: ClassicTemplate,
+  executive: ExecutiveTemplate,
+  compact: CompactTemplate,
+  bennett: BennettTemplate,
+};
+
 export default function CVBuilder({ applicationId, initialData }: CVBuilderProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [data, setData] = useState<any>(initialData || null);
-  const [template, setTemplate] = useState<'modern' | 'classic'>('modern');
+  const [template, setTemplate] = useState<CVTemplateKey>('modern');
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
@@ -60,22 +88,26 @@ export default function CVBuilder({ applicationId, initialData }: CVBuilderProps
     }
   };
 
-  const TemplateComponent = template === 'modern' ? ModernTemplate : ClassicTemplate;
+  const TemplateComponent = templateComponents[template];
+  const jobTitle = data?.application?.job_data?.title || 'target role';
+  const company = data?.application?.job_data?.company || 'company';
+  const candidateName = data?.profile?.full_name || 'Candidate';
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="cv-workbench">
       {!data ? (
-        <div className="glass p-12 rounded-3xl border-slate-200 dark:border-slate-800 text-center">
-          <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Sparkles size={40} />
+        <div className="cv-empty-state">
+          <div className="cv-empty-state__icon">
+            <WandSparkles size={36} />
           </div>
-          <h3 className="text-2xl font-black mb-2">Generate Your Tailored CV</h3>
-          <p className="text-slate-500 mb-8 max-w-md mx-auto">
+          <span>Tailored CV studio</span>
+          <h3>Generate your tailored CV</h3>
+          <p>
             Our AI will analyze your profile and the job description to create a high-impact CV that highlights your best matches.
           </p>
           
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-2 justify-center">
+            <div className="cv-message is-error">
               <AlertCircle size={20} />
               {error}
             </div>
@@ -84,7 +116,7 @@ export default function CVBuilder({ applicationId, initialData }: CVBuilderProps
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-indigo-500/40 transition-all flex items-center gap-2 mx-auto disabled:opacity-50"
+            className="cv-primary-action"
           >
             {isGenerating ? (
               <>
@@ -100,39 +132,44 @@ export default function CVBuilder({ applicationId, initialData }: CVBuilderProps
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Controls */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="glass p-6 rounded-2xl">
-              <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Choose Template</h4>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => setTemplate('modern')}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    template === 'modern' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600' : 'border-slate-100 dark:border-slate-800 text-slate-500 hover:border-indigo-200'
-                  }`}
-                >
-                  <Layout size={20} />
-                  <span className="font-bold">Modern Indigo</span>
-                </button>
-                <button
-                  onClick={() => setTemplate('classic')}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    template === 'classic' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600' : 'border-slate-100 dark:border-slate-800 text-slate-500 hover:border-indigo-200'
-                  }`}
-                >
-                  <FileText size={20} />
-                  <span className="font-bold">Classic Professional</span>
-                </button>
+        <div className="cv-review-desk">
+          <aside className="cv-review-controls">
+            <div className="cv-control-panel">
+              <div className="cv-control-panel__header">
+                <span><Layout size={15} /> Template</span>
+                <h4>Presentation style</h4>
+              </div>
+              <div className="cv-template-list">
+                {templateOptions.map((option) => {
+                  const Icon = option.icon;
+
+                  return (
+                    <button
+                      key={option.key}
+                      onClick={() => setTemplate(option.key)}
+                      className={`cv-template-option is-${option.key} ${template === option.key ? 'is-active' : ''}`}
+                      type="button"
+                    >
+                      <Icon size={20} />
+                      <span>
+                        <strong>{option.name}</strong>
+                        <em>{option.description}</em>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="glass p-6 rounded-2xl">
-              <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Actions</h4>
+            <div className="cv-control-panel">
+              <div className="cv-control-panel__header">
+                <span><Download size={15} /> Export</span>
+                <h4>Actions</h4>
+              </div>
               <PDFDownloadLink
                 document={<TemplateComponent data={data} />}
-                fileName={`CV_${data.application.job_data.company}_${data.profile.full_name.replace(' ', '_')}.pdf`}
-                className="w-full bg-slate-900 hover:bg-black text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg"
+                fileName={`CV_${company}_${candidateName.replace(' ', '_')}.pdf`}
+                className="cv-download-action"
               >
                 {({ loading }) => (
                   <>
@@ -145,27 +182,37 @@ export default function CVBuilder({ applicationId, initialData }: CVBuilderProps
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full mt-3 p-4 border border-indigo-200 text-indigo-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all"
+                className="cv-secondary-action"
+                type="button"
               >
-                {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} />}
                 Regenerate Content
               </button>
             </div>
             
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-xl flex items-center gap-2 text-sm font-medium">
+            <div className="cv-success-note">
               <CheckCircle2 size={18} />
-              AI tailored your CV based on {data.application.job_data.title} requirements.
+              <span>AI tailored your CV based on {jobTitle} requirements.</span>
             </div>
-          </div>
+          </aside>
 
-          {/* Preview */}
-          <div className="lg:col-span-2">
-            <div className="glass p-2 rounded-2xl border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl h-[800px]">
-              <PDFViewer className="w-full h-full border-none rounded-xl">
+          <section className="cv-preview-panel">
+            <div className="cv-preview-panel__topbar">
+              <div>
+                <span><Eye size={15} /> Live preview</span>
+                <h4>{candidateName}</h4>
+              </div>
+              <div className="cv-preview-meta">
+                <strong>{template}</strong>
+                <span>{company}</span>
+              </div>
+            </div>
+            <div className="cv-preview-frame">
+              <PDFViewer className="cv-pdf-viewer">
                 <TemplateComponent data={data} />
               </PDFViewer>
             </div>
-          </div>
+          </section>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
+import {
   Building2, 
   MapPin, 
   Briefcase, 
@@ -15,17 +15,29 @@ import {
   History,
   CheckCircle2,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  Gauge,
+  Layers3,
+  TimerReset
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateApplicationStatus } from '@/lib/jobs/actions';
 import CVBuilder from '@/components/cv/CVBuilder';
 import CoverLetterBuilder from '@/components/cv/CoverLetterBuilder';
 import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/ProtectedPage';
+import { APPLICATION_STATUSES } from '@/lib/validation';
 
-const statuses = [
-  'saved', 'applied', 'phone_screen', 'interview', 'offer', 'accepted', 'rejected'
-];
+const statuses = [...APPLICATION_STATUSES];
+
+const statusLabels: Record<string, string> = {
+  saved: 'Saved',
+  applied: 'Applied',
+  phone_screen: 'Phone screen',
+  interview: 'Interview',
+  offer: 'Offer',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+};
 
 interface JobDetailViewProps {
   application: any;
@@ -49,173 +61,234 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
   };
 
   const { job_data } = application;
+  const requiredSkills = job_data.requiredSkills || [];
+  const niceToHaveSkills = job_data.niceToHaveSkills || [];
+  const responsibilities = job_data.responsibilities || [];
+  const documents = application.generated_documents || [];
+  const cvDocument = documents.find((d: any) => d.type === 'cv');
+  const coverLetterDocument = documents.find((d: any) => d.type === 'cover_letter');
 
   return (
     <ProtectedPage maxWidth="wide">
       <div className="protected-page__back">
         <Link 
           href="/applications" 
-          className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors w-fit"
+          className="application-detail-back"
         >
           <ChevronLeft size={20} />
-          Back to Applications
+          Back to applications
         </Link>
       </div>
 
       <ProtectedPageHeader
         eyebrow="Application detail"
-        title={job_data.title}
-        description={`${job_data.company} ${job_data.location ? `in ${job_data.location}` : ''}`}
+        title={job_data.title || 'Untitled role'}
+        description={`${job_data.company || 'Unknown company'} ${job_data.location ? `in ${job_data.location}` : ''}`}
         icon={Briefcase}
-        actions={
-          <>
+      />
+
+      <section className="application-detail">
+        <div className="application-detail-hero">
+          <div className="application-detail-hero__copy">
+            <span><Sparkles size={16} /> Role dossier</span>
+            <h2>{job_data.title || 'Untitled role'}</h2>
+            <div className="application-detail-meta">
+              <span><Building2 size={17} /> {job_data.company || 'Unknown company'}</span>
+              <span><MapPin size={17} /> {job_data.location || 'Location not set'}</span>
+              <span><Briefcase size={17} /> {job_data.type || 'Role type unknown'}</span>
+            </div>
+          </div>
+
+          <div className="application-detail-score" aria-label={`${application.match_score}% match score`}>
+            <Gauge size={20} />
+            <strong>{application.match_score}%</strong>
+            <span>match</span>
+          </div>
+        </div>
+
+        <div className="application-detail-console">
+          <div className="application-detail-status">
+            <label>Status</label>
             <select
               value={status}
               onChange={(e) => handleStatusChange(e.target.value)}
               disabled={isUpdating}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
             >
-              {statuses.map(s => <option key={s} value={s} className="capitalize">{s.replace('_', ' ')}</option>)}
+              {statuses.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
             </select>
-            <button className="bg-red-50 text-red-600 p-2.5 rounded-xl hover:bg-red-100 transition-all">
-              <Trash2 size={20} />
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-wrap gap-4 text-slate-500 font-medium">
-          <span className="flex items-center gap-1.5"><Building2 size={18} /> {job_data.company}</span>
-          <span className="flex items-center gap-1.5"><MapPin size={18} /> {job_data.location}</span>
-          <span className="flex items-center gap-1.5"><Briefcase size={18} /> {job_data.type}</span>
-        </div>
-      </ProtectedPageHeader>
-
-      {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Tabs */}
-        <div className="lg:col-span-1 flex flex-col gap-2">
-          {[
-            { id: 'overview', label: 'Overview', icon: FileText },
-            { id: 'cvs', label: 'Generated CVs', icon: Sparkles },
-            { id: 'cover-letters', label: 'Cover Letters', icon: MessageSquare },
-            { id: 'notes', label: 'Notes & Activity', icon: History },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-3 p-4 rounded-2xl font-bold transition-all text-left ${
-                activeTab === tab.id 
-                  ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30' 
-                  : 'text-slate-500 hover:bg-white dark:hover:bg-slate-900'
-              }`}
-            >
-              <tab.icon size={20} />
-              {tab.label}
-            </button>
-          ))}
+          </div>
+          <div className="application-detail-fact">
+            <CircleDollarSign size={18} />
+            <div>
+              <span>Salary</span>
+              <strong>{job_data.salary || 'Not specified'}</strong>
+            </div>
+          </div>
+          <div className="application-detail-fact">
+            <TimerReset size={18} />
+            <div>
+              <span>Experience</span>
+              <strong>{job_data.experience || 'Not specified'}</strong>
+            </div>
+          </div>
+          <button className="application-detail-delete" type="button" aria-label="Delete application">
+            <Trash2 size={19} />
+          </button>
         </div>
 
-        {/* Tab Content */}
-        <div className="lg:col-span-3">
+        <div className="application-detail-layout">
+          <nav className="application-detail-tabs" aria-label="Application detail sections">
+            {[
+              { id: 'overview', label: 'Overview', icon: FileText },
+              { id: 'cvs', label: 'Generated CVs', icon: Sparkles },
+              { id: 'cover-letters', label: 'Cover Letters', icon: MessageSquare },
+              { id: 'notes', label: 'Notes & Activity', icon: History },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`application-detail-tab ${activeTab === tab.id ? 'is-active' : ''}`}
+                  type="button"
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
+                >
+                  <span><Icon size={19} /></span>
+                  <strong>{tab.label}</strong>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="application-detail-content">
           {activeTab === 'overview' && (
-            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="glass p-8 rounded-3xl border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold">Job Details</h3>
-                  <div className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl font-black border border-indigo-100 dark:border-indigo-900/50">
-                    {application.match_score}% Match
-                  </div>
-                </div>
+            <div className="application-detail-panel">
+              <div className="application-detail-panel__header">
+                <span><Layers3 size={16} /> Extracted job data</span>
+                <h3>Role overview</h3>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Salary Range</h4>
-                      <p className="font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                        <CircleDollarSign size={18} className="text-emerald-500" />
-                        {job_data.salary || 'Not specified'}
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Required Skills</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {job_data.requiredSkills.map((s: string) => (
-                          <span key={s} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Experience Level</h4>
-                      <p className="font-bold text-slate-900 dark:text-white">{job_data.experience}</p>
-                    </div>
-                    {job_data.deadline && (
-                      <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Deadline</h4>
-                        <p className="font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                          <Calendar size={18} className="text-amber-500" />
-                          {job_data.deadline}
-                        </p>
-                      </div>
+              <div className="application-detail-grid">
+                <div className="application-detail-section">
+                  <h4>Required skills</h4>
+                  <div className="application-detail-skill-list">
+                    {requiredSkills.length > 0 ? requiredSkills.map((s: string) => (
+                      <span key={s}>{s}</span>
+                    )) : (
+                      <em>No required skills extracted</em>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Key Responsibilities</h4>
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {job_data.responsibilities.map((r: string, i: number) => (
-                        <li key={i} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-sm text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
-                          <CheckCircle2 size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
+                <div className="application-detail-section">
+                  <h4>Nice to have</h4>
+                  <div className="application-detail-skill-list is-muted">
+                    {niceToHaveSkills.length > 0 ? niceToHaveSkills.map((s: string) => (
+                      <span key={s}>{s}</span>
+                    )) : (
+                      <em>No preferred skills extracted</em>
+                    )}
                   </div>
                 </div>
-
-                {application.url && (
-                  <a 
-                    href={application.url} 
-                    target="_blank" 
-                    className="mt-8 flex items-center justify-center gap-2 p-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all group"
-                  >
-                    View Original Job Posting
-                    <ExternalLink size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                  </a>
-                )}
               </div>
+
+              <div className="application-detail-section">
+                <h4>Key responsibilities</h4>
+                <ul className="application-detail-responsibilities">
+                  {responsibilities.length > 0 ? responsibilities.map((r: string, i: number) => (
+                    <li key={i}>
+                      <CheckCircle2 size={16} />
+                      {r}
+                    </li>
+                  )) : (
+                    <li><CheckCircle2 size={16} /> No responsibilities extracted</li>
+                  )}
+                </ul>
+              </div>
+
+              {(job_data.aboutCompany || job_data.deadline || application.url) && (
+                <div className="application-detail-footnotes">
+                  {job_data.aboutCompany && (
+                    <div>
+                      <h4>Company note</h4>
+                      <p>{job_data.aboutCompany}</p>
+                    </div>
+                  )}
+                  {job_data.deadline && (
+                    <div>
+                      <h4>Deadline</h4>
+                      <p><Calendar size={16} /> {job_data.deadline}</p>
+                    </div>
+                  )}
+                  {application.url && (
+                    <a href={application.url} target="_blank" rel="noreferrer">
+                      View original posting
+                      <ExternalLink size={16} />
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'cvs' && (
-            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="application-detail-document-panel">
+              <div className="application-detail-panel__header">
+                <span><Sparkles size={16} /> Tailored document</span>
+                <h3>Generated CV</h3>
+                <p>{cvDocument ? 'Review or regenerate the CV tailored to this role.' : 'Generate a CV tuned to the extracted role and your profile.'}</p>
+              </div>
               <CVBuilder 
                 applicationId={application.id} 
-                initialData={application.generated_documents?.find((d: any) => d.type === 'cv') ? {
+                initialData={cvDocument ? {
                   application: application,
-                  profile: application.profile, // Need to ensure profile is passed or fetched
-                  tailoredData: application.generated_documents.find((d: any) => d.type === 'cv').content
+                  profile: application.profile,
+                  tailoredData: cvDocument.content
                 } : null}
               />
             </div>
           )}
 
           {activeTab === 'cover-letters' && (
-            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="application-detail-document-panel">
+              <div className="application-detail-panel__header">
+                <span><MessageSquare size={16} /> Outreach</span>
+                <h3>Cover letter</h3>
+                <p>{coverLetterDocument ? 'Review or regenerate the saved cover letter for this application.' : 'Generate a cover letter grounded in this role and your profile.'}</p>
+              </div>
               <CoverLetterBuilder 
                 applicationId={application.id} 
-                initialText={application.generated_documents?.find((d: any) => d.type === 'cover_letter')?.content.text}
+                initialText={coverLetterDocument?.content.text}
               />
             </div>
           )}
+
+          {activeTab === 'notes' && (
+            <div className="application-detail-panel">
+              <div className="application-detail-panel__header">
+                <span><History size={16} /> Activity</span>
+                <h3>Notes & activity</h3>
+                <p>Timeline tools are not wired yet. Use status and generated documents as the current activity record.</p>
+              </div>
+              <div className="application-detail-activity">
+                <div>
+                  <strong>Current status</strong>
+                  <span>{statusLabels[status] || status}</span>
+                </div>
+                <div>
+                  <strong>Created</strong>
+                  <span>{new Date(application.created_at).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <strong>Generated documents</strong>
+                  <span>{documents.length}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          </div>
         </div>
-      </div>
+      </section>
     </ProtectedPage>
   );
 }

@@ -7,7 +7,14 @@ export async function proxy(request: NextRequest) {
                     url.pathname.startsWith('/register') ||
                     url.pathname.startsWith('/forgot-password');
 
+  const isApiRoute = url.pathname.startsWith('/api/');
   const isPublicPage = url.pathname === '/' || url.pathname.startsWith('/auth');
+
+  if (isApiRoute) {
+    return NextResponse.next({
+      request,
+    });
+  }
 
   if (isPublicPage) {
     return NextResponse.next({

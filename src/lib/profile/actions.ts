@@ -4,6 +4,15 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { persistProfileCompletion } from './completion';
+import {
+  profileEducationSchema,
+  profileExperienceSchema,
+  profileItemSchemas,
+  profilePersonalSchema,
+  profileSummarySchema,
+  validateWithSchema,
+  type ProfileItemTable,
+} from '@/lib/validation';
 
 export async function getFullProfile() {
   const supabase = await createClient();
@@ -46,9 +55,18 @@ export async function updateProfile(formData: any) {
 
   if (!user) throw new Error('Not authenticated');
 
+  const schema = Object.prototype.hasOwnProperty.call(formData, 'summary')
+    ? profileSummarySchema
+    : profilePersonalSchema;
+  const validation = validateWithSchema(schema, formData);
+
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the profile fields.');
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update(formData)
+    .update(validation.data)
     .eq('user_id', user.id);
 
   if (error) throw error;
@@ -64,7 +82,12 @@ export async function addWorkExperience(data: any) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase.from('work_experiences').insert({ ...data, user_id: user.id });
+  const validation = validateWithSchema(profileExperienceSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the work experience fields.');
+  }
+
+  const { error } = await supabase.from('work_experiences').insert({ ...validation.data, user_id: user.id });
   if (error) throw error;
   await persistProfileCompletion(user.id);
   revalidatePath('/profile');
@@ -77,7 +100,12 @@ export async function updateWorkExperience(id: string, data: any) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase.from('work_experiences').update(data).eq('id', id).eq('user_id', user.id);
+  const validation = validateWithSchema(profileExperienceSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the work experience fields.');
+  }
+
+  const { error } = await supabase.from('work_experiences').update(validation.data).eq('id', id).eq('user_id', user.id);
   if (error) throw error;
   await persistProfileCompletion(user.id);
   revalidatePath('/profile');
@@ -104,7 +132,12 @@ export async function addEducation(data: any) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase.from('educations').insert({ ...data, user_id: user.id });
+  const validation = validateWithSchema(profileEducationSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the education fields.');
+  }
+
+  const { error } = await supabase.from('educations').insert({ ...validation.data, user_id: user.id });
   if (error) throw error;
   await persistProfileCompletion(user.id);
   revalidatePath('/profile');
@@ -117,7 +150,12 @@ export async function updateEducation(id: string, data: any) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase.from('educations').update(data).eq('id', id).eq('user_id', user.id);
+  const validation = validateWithSchema(profileEducationSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the education fields.');
+  }
+
+  const { error } = await supabase.from('educations').update(validation.data).eq('id', id).eq('user_id', user.id);
   if (error) throw error;
   await persistProfileCompletion(user.id);
   revalidatePath('/profile');
@@ -144,7 +182,18 @@ export async function addProfileItem(table: string, data: any) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { error } = await supabase.from(table).insert({ ...data, user_id: user.id });
+  if (!Object.prototype.hasOwnProperty.call(profileItemSchemas, table)) {
+    throw new Error('Unsupported profile section.');
+  }
+
+  const schema = profileItemSchemas[table as ProfileItemTable];
+  const validation = validateWithSchema(schema, data);
+
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the profile section fields.');
+  }
+
+  const { error } = await supabase.from(table).insert({ ...validation.data, user_id: user.id });
   if (error) throw error;
   if (table === 'skills') {
     await persistProfileCompletion(user.id);
@@ -184,4 +233,3 @@ export async function skipOnboarding() {
   revalidatePath('/dashboard');
   redirect('/dashboard');
 }
-

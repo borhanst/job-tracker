@@ -3,6 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { persistProfileCompletion, type ProfileCompletionSnapshot } from '@/lib/profile/completion';
+import {
+  onboardingEducationSchema,
+  onboardingExperienceSchema,
+  onboardingPersonalSchema,
+  onboardingSkillsSchema,
+  onboardingSummarySchema,
+  validateWithSchema,
+} from '@/lib/validation';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -24,14 +32,20 @@ export async function saveOnboardingPersonal(data: {
   phone: string;
   location: string;
 }): Promise<ProfileCompletionSnapshot> {
+  const validation = validateWithSchema(onboardingPersonalSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the personal information fields.');
+  }
+
   const { supabase, user } = await getAuthenticatedUser();
+  const personal = validation.data;
 
   const { error } = await supabase
     .from('profiles')
     .update({
-      full_name: data.full_name,
-      phone: data.phone,
-      location: data.location,
+      full_name: personal.full_name,
+      phone: personal.phone,
+      location: personal.location,
     })
     .eq('user_id', user.id);
 
@@ -43,11 +57,17 @@ export async function saveOnboardingPersonal(data: {
 }
 
 export async function saveOnboardingSummary(summary: string): Promise<ProfileCompletionSnapshot> {
+  const validation = validateWithSchema(onboardingSummarySchema, { summary });
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the professional summary.');
+  }
+
   const { supabase, user } = await getAuthenticatedUser();
+  const summaryData = validation.data;
 
   const { error } = await supabase
     .from('profiles')
-    .update({ summary })
+    .update({ summary: summaryData.summary })
     .eq('user_id', user.id);
 
   if (error) throw error;
@@ -58,14 +78,13 @@ export async function saveOnboardingSummary(summary: string): Promise<ProfileCom
 }
 
 export async function saveOnboardingSkills(skillNames: string[]): Promise<ProfileCompletionSnapshot> {
-  const { supabase, user } = await getAuthenticatedUser();
-  const names = skillNames
-    .map((name) => name.trim())
-    .filter(Boolean);
-
-  if (names.length < 3) {
-    throw new Error('Add at least 3 skills.');
+  const validation = validateWithSchema(onboardingSkillsSchema, { skills: skillNames });
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? validation.fieldErrors.skills?.[0] ?? 'Add at least 3 skills.');
   }
+
+  const { supabase, user } = await getAuthenticatedUser();
+  const names = validation.data.skills;
 
   const { data: existingSkills, error: existingError } = await supabase
     .from('skills')
@@ -99,15 +118,21 @@ export async function saveOnboardingExperience(data: {
   start_date: string;
   description: string;
 }): Promise<ProfileCompletionSnapshot> {
+  const validation = validateWithSchema(onboardingExperienceSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the work experience fields.');
+  }
+
   const { supabase, user } = await getAuthenticatedUser();
+  const experience = validation.data;
 
   const { error } = await supabase.from('work_experiences').insert({
     user_id: user.id,
-    company: data.company,
-    title: data.title,
-    start_date: data.start_date,
+    company: experience.company,
+    title: experience.title,
+    start_date: experience.start_date,
     is_current: true,
-    description: data.description,
+    description: experience.description,
   });
 
   if (error) throw error;
@@ -123,14 +148,20 @@ export async function saveOnboardingEducation(data: {
   field: string;
   start_date: string;
 }): Promise<ProfileCompletionSnapshot> {
+  const validation = validateWithSchema(onboardingEducationSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the education fields.');
+  }
+
   const { supabase, user } = await getAuthenticatedUser();
+  const education = validation.data;
 
   const { error } = await supabase.from('educations').insert({
     user_id: user.id,
-    institution: data.institution,
-    degree: data.degree,
-    field: data.field,
-    start_date: data.start_date,
+    institution: education.institution,
+    degree: education.degree,
+    field: education.field,
+    start_date: education.start_date,
   });
 
   if (error) throw error;

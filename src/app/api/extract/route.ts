@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getModelInstance } from '@/lib/ai/provider';
 import { extractJobData, computeMatchScore } from '@/lib/ai/extract';
 import { getFullProfile } from '@/lib/profile/actions';
+import { extractRequestSchema, validateWithSchema } from '@/lib/validation';
 
 export async function POST(request: Request) {
   try {
@@ -13,17 +14,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { rawText } = await request.json();
+    const body = await request.json();
+    const validation = validateWithSchema(extractRequestSchema, body);
 
-    if (!rawText) {
-      return NextResponse.json({ error: 'Raw text is required' }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validation.formErrors[0] ?? validation.fieldErrors.rawText?.[0] ?? 'Raw text is required',
+          fieldErrors: validation.fieldErrors,
+        },
+        { status: 400 },
+      );
     }
 
     // Get the model instance based on user settings
     const model = await getModelInstance(user.id);
 
     // 1. Extract job data
-    const jobData = await extractJobData(rawText, model);
+    const jobData = await extractJobData(validation.data.rawText, model);
 
     // 2. Fetch profile to compute match score
     const profile = await getFullProfile();

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { updateProfile } from '@/lib/profile/actions';
+import { profilePersonalSchema, validateWithSchema } from '@/lib/validation';
 
 interface PersonalInfoProps {
   profile: any;
@@ -20,18 +21,33 @@ export default function PersonalInfo({ profile }: PersonalInfoProps) {
   
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setMessage({ type: '', text: '' });
+    setFieldErrors({});
+
+    const validation = validateWithSchema(profilePersonalSchema, formData);
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setMessage({ type: 'error', text: validation.formErrors[0] ?? 'Check the highlighted fields.' });
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
-      await updateProfile(formData);
+      await updateProfile(validation.data);
       setMessage({ type: 'success', text: 'Personal information saved successfully.' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Failed to save.' });
@@ -39,104 +55,121 @@ export default function PersonalInfo({ profile }: PersonalInfoProps) {
       setIsSaving(false);
     }
   };
+  const firstError = (field: string) => fieldErrors[field]?.[0];
+  const inputClass = (_field: string) => 'profile-input';
 
   return (
-    <div className="glass-card p-10">
-      <h2 className="text-2xl font-bold mb-6">Personal Information</h2>
+    <div className="profile-panel">
+      <div className="profile-panel__header">
+        <span>Identity</span>
+        <h2>Personal information</h2>
+      </div>
       
       {message.text && (
-        <div className={`p-4 mb-6 rounded-lg ${message.type === 'success' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30' : 'bg-red-50 text-red-600 dark:bg-red-950/30'}`}>
+        <div className={`profile-message is-${message.type}`}>
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Full Name</label>
+      <form onSubmit={handleSubmit} className="profile-form" noValidate>
+        <div className="profile-field-grid">
+          <div className="profile-field">
+            <label>Full Name</label>
             <input
               type="text"
               name="full_name"
               value={formData.full_name}
               onChange={handleChange}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('full_name')}
+              aria-invalid={Boolean(firstError('full_name'))}
             />
+            {firstError('full_name') && <p className="profile-field-error">{firstError('full_name')}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
+          <div className="profile-field">
+            <label>Email</label>
             <input
               type="email"
               value={profile?.email || ''}
               disabled
-              className="w-full p-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-not-allowed opacity-70"
+              className="profile-input"
             />
-            <p className="text-xs text-slate-500 mt-1">Email cannot be changed here.</p>
+            <p>Email cannot be changed here.</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Phone</label>
+          <div className="profile-field">
+            <label>Phone</label>
             <input
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('phone')}
+              aria-invalid={Boolean(firstError('phone'))}
             />
+            {firstError('phone') && <p className="profile-field-error">{firstError('phone')}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Location</label>
+          <div className="profile-field">
+            <label>Location</label>
             <input
               type="text"
               name="location"
               value={formData.location}
               onChange={handleChange}
               placeholder="City, Country or Remote"
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('location')}
+              aria-invalid={Boolean(firstError('location'))}
             />
+            {firstError('location') && <p className="profile-field-error">{firstError('location')}</p>}
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold mt-4 mb-2">Links</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">LinkedIn URL</label>
+        <h3 className="profile-subhead">Links</h3>
+        <div className="profile-field-grid">
+          <div className="profile-field">
+            <label>LinkedIn URL</label>
             <input
               type="url"
               name="linkedin_url"
               value={formData.linkedin_url}
               onChange={handleChange}
               placeholder="https://linkedin.com/in/username"
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('linkedin_url')}
+              aria-invalid={Boolean(firstError('linkedin_url'))}
             />
+            {firstError('linkedin_url') && <p className="profile-field-error">{firstError('linkedin_url')}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">GitHub URL</label>
+          <div className="profile-field">
+            <label>GitHub URL</label>
             <input
               type="url"
               name="github_url"
               value={formData.github_url}
               onChange={handleChange}
               placeholder="https://github.com/username"
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('github_url')}
+              aria-invalid={Boolean(firstError('github_url'))}
             />
+            {firstError('github_url') && <p className="profile-field-error">{firstError('github_url')}</p>}
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-2">Portfolio URL</label>
+          <div className="profile-field profile-field--wide">
+            <label>Portfolio URL</label>
             <input
               type="url"
               name="portfolio_url"
               value={formData.portfolio_url}
               onChange={handleChange}
               placeholder="https://yourwebsite.com"
-              className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              className={inputClass('portfolio_url')}
+              aria-invalid={Boolean(firstError('portfolio_url'))}
             />
+            {firstError('portfolio_url') && <p className="profile-field-error">{firstError('portfolio_url')}</p>}
           </div>
         </div>
 
-        <div className="flex justify-end mt-4">
+        <div className="profile-actions">
           <button
             type="submit"
             disabled={isSaving}
-            className="btn-primary px-10 py-4 rounded-2xl"
+            className="profile-save"
           >
             {isSaving && <Loader2 size={18} className="animate-spin" />}
             Save Changes

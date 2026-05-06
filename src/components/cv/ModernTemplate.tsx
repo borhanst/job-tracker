@@ -1,24 +1,26 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 
 // Register a clean font (Helvetica is default, but we can style better)
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 34,
     fontSize: 10,
     fontFamily: 'Helvetica',
-    color: '#1e293b',
+    color: '#1f2937',
+    backgroundColor: '#ffffff',
   },
   header: {
-    marginBottom: 20,
-    borderBottom: 2,
-    borderBottomColor: '#4f46e5',
-    paddingBottom: 10,
+    marginBottom: 18,
+    padding: 16,
+    backgroundColor: '#f0fdfa',
+    borderLeft: 5,
+    borderLeftColor: '#0f766e',
   },
   name: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#0f172a',
     marginBottom: 4,
   },
   contact: {
@@ -33,12 +35,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#4f46e5',
+    color: '#0f766e',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: 8,
     borderBottom: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#ccfbf1',
     paddingBottom: 2,
   },
   summary: {
@@ -58,8 +60,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   title: {
-    fontStyle: 'italic',
-    color: '#4f46e5',
+    color: '#0f766e',
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   date: {
@@ -77,10 +79,12 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   skillBadge: {
-    padding: '3 6',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 4,
+    padding: '4 7',
+    backgroundColor: '#f0fdfa',
+    color: '#0f766e',
+    borderRadius: 10,
     fontSize: 8,
+    fontWeight: 'bold',
   },
 });
 

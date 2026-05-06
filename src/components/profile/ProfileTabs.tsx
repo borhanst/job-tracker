@@ -30,7 +30,7 @@ interface ProfileTabsProps {
 
 export default function ProfileTabs({ activeSection, setActiveSection }: ProfileTabsProps) {
   return (
-    <div className="flex flex-col gap-1">
+    <nav className="profile-tabs" aria-label="Profile sections">
       {sections.map((section) => {
         const Icon = section.icon;
         const isActive = activeSection === section.id;
@@ -39,17 +39,15 @@ export default function ProfileTabs({ activeSection, setActiveSection }: Profile
           <button
             key={section.id}
             onClick={() => setActiveSection(section.id)}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
-              isActive 
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20' 
-                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-            }`}
+            className={`profile-tab ${isActive ? 'is-active' : ''}`}
+            type="button"
+            aria-current={isActive ? 'page' : undefined}
           >
-            <Icon size={20} />
-            <span className="font-medium">{section.name}</span>
+            <span><Icon size={19} /></span>
+            <strong>{section.name}</strong>
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }

@@ -1,0 +1,3 @@
+# Server-side JD Handoff for Browser Capture
+
+Browser JD Capture will transfer selected job description sections through a short-lived server-side JD Handoff record tied to the signed-in web app session. The Chrome extension posts the captured URL, page title, and one or more user-selected text blocks to a protected endpoint, then opens `/jobs/add?handoff=<id>` so the existing Add Job review flow can load the combined text before AI Extraction. A handoff expires after 30 minutes and is consumed when loaded, keeping raw JD text and app auth tokens out of URLs and extension storage while preserving the review, AI Extraction, Match Score, and Save Application steps inside the web app.

@@ -4,6 +4,7 @@ import { getModelInstance } from '@/lib/ai/provider';
 import { generateTailoredCV } from '@/lib/ai/generate';
 import { getApplicationById } from '@/lib/jobs/actions';
 import { getFullProfile } from '@/lib/profile/actions';
+import { generationRequestSchema, validateWithSchema } from '@/lib/validation';
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +15,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { applicationId } = await request.json();
+    const body = await request.json();
+    const validation = validateWithSchema(generationRequestSchema, body);
 
-    if (!applicationId) {
-      return NextResponse.json({ error: 'Application ID is required' }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validation.formErrors[0] ?? validation.fieldErrors.applicationId?.[0] ?? 'Application ID is required',
+          fieldErrors: validation.fieldErrors,
+        },
+        { status: 400 },
+      );
     }
+    const { applicationId } = validation.data;
 
     const [application, profile] = await Promise.all([
       getApplicationById(applicationId),

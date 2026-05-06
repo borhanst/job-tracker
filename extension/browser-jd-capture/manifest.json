@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Applynexis Browser JD Capture",
+  "description": "Capture selected job description sections and send them to Applynexis.",
+  "version": "0.1.0",
+  "permissions": ["activeTab", "contextMenus", "sidePanel", "scripting", "tabs"],
+  "host_permissions": ["http://localhost:3000/*", "http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_title": "Capture JD"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  }
+}

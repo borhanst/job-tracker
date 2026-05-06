@@ -1,18 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Loader2, Key, CheckCircle2, AlertCircle, Power } from 'lucide-react';
+import {
+  AlertCircle,
+  Bot,
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  LockKeyhole,
+  Power,
+  RadioTower,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
 import { updateUserSettings } from '@/lib/settings/actions';
+import { settingsSchema, validateWithSchema } from '@/lib/validation';
 
 interface SettingsFormProps {
   initialSettings: any;
 }
 
 const PROVIDER_OPTIONS = [
-  { value: 'gemini', label: 'Google Gemini', hint: 'Recommended' },
-  { value: 'openai', label: 'OpenAI', hint: 'ChatGPT' },
-  { value: 'anthropic', label: 'Anthropic', hint: 'Claude' },
-  { value: 'groq', label: 'Groq', hint: 'Fastest' },
+  { value: 'gemini', label: 'Google Gemini', hint: 'Recommended', icon: Sparkles },
+  { value: 'openai', label: 'OpenAI', hint: 'ChatGPT', icon: Bot },
+  { value: 'anthropic', label: 'Anthropic', hint: 'Claude', icon: ShieldCheck },
+  { value: 'groq', label: 'Groq', hint: 'Fastest', icon: Zap },
 ];
 
 const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -29,8 +42,8 @@ const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet (Excellent quality)' },
   ],
   groq: [
-    { value: 'llama3-8b-8192', label: 'Llama 3 8B (Extremely fast)' },
-    { value: 'llama3-70b-8192', label: 'Llama 3 70B (High quality)' },
+    { value: 'openai/gpt-oss-120b', label: 'OpenAI GPT-OSS 120B (Higher quality)' },
+    { value: 'openai/gpt-oss-20b', label: 'OpenAI GPT-OSS 20B (Fast)' },
   ],
 };
 
@@ -61,6 +74,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const selectedProvider = PROVIDER_OPTIONS.find((option) => option.value === provider);
   const model = providerModels[provider] || MODEL_OPTIONS[provider][0].value;
@@ -73,9 +87,15 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     setProvider(newProvider);
     setApiKey('');
     setMessage({ type: '', text: '' });
+    setFieldErrors({});
   };
 
   const handleModelChange = (newModel: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.model;
+      return next;
+    });
     setProviderModels((currentModels) => ({
       ...currentModels,
       [provider]: newModel,
@@ -84,21 +104,36 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setMessage({ type: '', text: '' });
+    setFieldErrors({});
+
+    const validation = validateWithSchema(settingsSchema, {
+      provider,
+      model,
+      newKey: apiKey,
+      hasExistingKey: hasKeySet,
+    });
+
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setMessage({ type: 'error', text: validation.formErrors[0] ?? 'Check the highlighted fields.' });
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
-      await updateUserSettings(provider, model, apiKey || undefined);
+      await updateUserSettings(validation.data.provider, validation.data.model, validation.data.newKey);
 
-      if (apiKey) {
+      if (validation.data.newKey) {
         setSavedKeys((currentKeys) => ({
           ...currentKeys,
-          [provider]: true,
+          [validation.data.provider]: true,
         }));
         setApiKey('');
       }
 
-      setActiveProvider(provider);
+      setActiveProvider(validation.data.provider);
       setMessage({ type: 'success', text: `${selectedProvider?.label || 'Provider'} is now active.` });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Failed to save settings.' });
@@ -108,63 +143,72 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   };
 
   return (
-    <div className="glass-card p-10">
-      <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-        <Key className="text-blue-600" />
-        AI Provider Configuration
-      </h2>
+    <div className="settings-console">
+      <div className="settings-console__mast">
+        <div>
+          <span><RadioTower size={16} /> Model routing</span>
+          <h2>AI control desk</h2>
+          <p>
+            Choose the active generation provider, keep model preferences per vendor, and rotate encrypted keys without leaving this workspace.
+          </p>
+        </div>
+
+        <div className="settings-console__status">
+          <strong>{configuredCount}</strong>
+          <span>configured</span>
+        </div>
+      </div>
 
       {message.text && (
-        <div className={`p-4 mb-6 rounded-lg flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30' : 'bg-red-50 text-red-600 dark:bg-red-950/30'}`}>
+        <div className={`settings-message is-${message.type}`}>
           {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <label className="block text-sm font-medium">AI Providers</label>
-            <span className="text-xs text-slate-500">{configuredCount} configured, 1 active</span>
+      <form onSubmit={handleSubmit} className="settings-form" noValidate>
+        <div className="settings-provider-panel">
+          <div className="settings-section-heading">
+            <div>
+              <span>Providers</span>
+              <h3>Route generation through</h3>
+            </div>
+            <em>{activeProvider} active</em>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="settings-provider-grid">
             {PROVIDER_OPTIONS.map((option) => {
               const isSelected = provider === option.value;
               const isActive = activeProvider === option.value;
               const isConfigured = savedKeys[option.value];
+              const Icon = option.icon;
 
               return (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => handleProviderChange(option.value)}
-                  className={`text-left p-4 rounded-xl border transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50/80 shadow-sm dark:bg-blue-950/20'
-                      : 'border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/50'
-                  }`}
+                  className={`settings-provider ${isSelected ? 'is-selected' : ''}`}
                   aria-pressed={isSelected}
                 >
-                  <span className="flex items-start justify-between gap-3">
-                    <span>
-                      <span className="block font-semibold text-slate-950 dark:text-slate-100">
-                        {option.label}
+                  <span className="settings-provider__icon">
+                    <Icon size={19} />
+                  </span>
+                  <span className="settings-provider__copy">
+                    <strong>{option.label}</strong>
+                    <span>{option.hint}</span>
+                  </span>
+                  <span className="settings-provider__badges">
+                    {isActive && (
+                      <span className="settings-pill is-active">
+                        <Power size={12} /> Active
                       </span>
-                      <span className="mt-1 block text-xs text-slate-500">{option.hint}</span>
-                    </span>
-                    <span className="flex flex-col items-end gap-1">
-                      {isActive && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                          <Power size={12} /> Active
-                        </span>
-                      )}
-                      {isConfigured && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                          <CheckCircle2 size={12} /> Saved
-                        </span>
-                      )}
-                    </span>
+                    )}
+                    {isConfigured && (
+                      <span className="settings-pill is-saved">
+                        <CheckCircle2 size={12} /> Saved
+                      </span>
+                    )}
                   </span>
                 </button>
               );
@@ -172,73 +216,87 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Model for {selectedProvider?.label || 'Provider'}
-          </label>
-          <select
-            value={model}
-            onChange={(e) => handleModelChange(e.target.value)}
-            className="w-full p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-          >
-            {MODEL_OPTIONS[provider]?.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
+        <div className="settings-detail-panel">
+          <div className="settings-section-heading">
+            <div>
+              <span>Configuration</span>
+              <h3>{selectedProvider?.label || 'Provider'}</h3>
+            </div>
+            <em>{hasKeySet ? 'key saved' : 'needs key'}</em>
+          </div>
 
-        <div className="mt-2 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800">
-          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/40">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Selected model
-              </span>
-              <span className="mt-1 block text-sm font-medium text-slate-950 dark:text-slate-100">
-                {selectedModelLabel}
-              </span>
+          <div className="settings-model-field">
+            <label htmlFor="settings-model">Model</label>
+            <select
+              id="settings-model"
+              value={model}
+              onChange={(e) => handleModelChange(e.target.value)}
+              aria-invalid={Boolean(fieldErrors.model?.[0])}
+            >
+              {MODEL_OPTIONS[provider]?.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            {fieldErrors.model?.[0] && <p className="settings-field-error">{fieldErrors.model[0]}</p>}
+          </div>
+
+          <div className="settings-summary-grid">
+            <div className="settings-summary-item">
+              <span>Selected model</span>
+              <strong>{selectedModelLabel}</strong>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/40">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                API key
-              </span>
-              <span className="mt-1 block font-mono text-sm font-medium text-slate-950 dark:text-slate-100">
-                {hasKeySet ? '•••• •••• •••• saved' : 'No key saved'}
-              </span>
+            <div className="settings-summary-item">
+              <span>API key</span>
+              <strong>{hasKeySet ? 'Saved and encrypted' : 'Not saved yet'}</strong>
             </div>
           </div>
 
-          <label className="block text-sm font-medium mb-2 flex items-center justify-between">
-            <span>API Key for {selectedProvider?.label || provider}</span>
-            {hasKeySet && (
-              <span className="text-xs text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 rounded-md font-semibold flex items-center gap-1">
-                <CheckCircle2 size={12} /> Key Saved
-              </span>
-            )}
-          </label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={hasKeySet ? 'Existing key saved. Enter a new key to replace it.' : 'Enter your API key here'}
-            className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm"
-          />
-          <p className="text-xs text-slate-500 mt-2">
-            {hasKeySet
-              ? 'Leave blank to keep your existing saved key. Entering a new key will overwrite it.'
-              : 'Save a key to add this provider. It is encrypted before being stored in the database.'}
-          </p>
-        </div>
+          <div className="settings-key-panel">
+            <div className="settings-key-panel__header">
+              <span><LockKeyhole size={16} /> API key</span>
+              {hasKeySet && (
+                <em>
+                  <CheckCircle2 size={12} /> Key saved
+                </em>
+              )}
+            </div>
 
-        <div className="flex justify-end mt-2">
-          <button
-            type="submit"
-            disabled={isSaving || (!hasKeySet && !apiKey)}
-            className="btn-primary px-10 py-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving && <Loader2 size={18} className="animate-spin" />}
-            Save and Set Active
-          </button>
+            <label className="settings-secret-field">
+              <KeyRound size={18} />
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  setFieldErrors((current) => {
+                    const next = { ...current };
+                    delete next.newKey;
+                    return next;
+                  });
+                }}
+                placeholder={hasKeySet ? 'Enter a new key only if you want to replace it' : `Paste ${selectedProvider?.label || provider} API key`}
+                aria-invalid={Boolean(fieldErrors.newKey?.[0])}
+              />
+            </label>
+
+            {fieldErrors.newKey?.[0] && <p className="settings-field-error">{fieldErrors.newKey[0]}</p>}
+            <p>
+              {hasKeySet
+                ? 'Leave this field empty to keep the existing encrypted key.'
+                : 'A key is required before this provider can be activated.'}
+            </p>
+          </div>
+
+          <div className="settings-actions">
+            <span>
+              {selectedProvider?.label || 'Provider'} will be used for extraction, CVs, and cover letters.
+            </span>
+            <button type="submit" disabled={isSaving} className="settings-save">
+              {isSaving && <Loader2 size={18} className="animate-spin" />}
+              Save and set active
+            </button>
+          </div>
         </div>
       </form>
     </div>

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
+import {
+  ArrowLeft,
+  ClipboardPaste,
   Link as LinkIcon, 
   FileText, 
   Sparkles, 
@@ -13,34 +15,102 @@ import {
   Building2,
   MapPin,
   CircleDollarSign,
-  Briefcase
+  Briefcase,
+  Gauge,
+  Save
 } from 'lucide-react';
 import { createApplication } from '@/lib/jobs/actions';
+import {
+  applicationCreateSchema,
+  extractRequestSchema,
+  scrapeRequestSchema,
+  validateWithSchema,
+} from '@/lib/validation';
 
-export default function AddJobWizard() {
+type AddJobWizardProps = {
+  initialHandoffId?: string;
+};
+
+export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
   const [step, setStep] = useState(1);
   const [url, setUrl] = useState('');
   const [rawText, setRawText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   
   const [extractedData, setExtractedData] = useState<any>(null);
   const [matchScore, setMatchScore] = useState<number | null>(null);
 
   const router = useRouter();
+  const loadedHandoffRef = useRef<string | null>(null);
+  const firstError = (field: string) => fieldErrors[field]?.[0];
+  const clearFieldError = (field: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
 
-  const handleScrape = async () => {
+  useEffect(() => {
+    if (!initialHandoffId || loadedHandoffRef.current === initialHandoffId) return;
+
+    loadedHandoffRef.current = initialHandoffId;
     setIsLoading(true);
     setError(null);
+    setHandoffNotice(null);
+    setFieldErrors({});
+
+    fetch(`/api/jd-handoffs/${encodeURIComponent(initialHandoffId)}`, {
+      method: 'GET',
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'JD Handoff could not be loaded');
+        }
+
+        setUrl(data.handoff.url);
+        setRawText(data.handoff.rawText);
+        setStep(2);
+        setHandoffNotice('Browser JD Capture loaded. Review the selected sections before AI Extraction.');
+      })
+      .catch((err: any) => {
+        setStep(1);
+        setError(`${err.message}. Recapture the job description or paste it manually.`);
+      })
+      .finally(() => {
+        setIsLoading(false);
+        router.replace('/jobs/add', { scroll: false });
+      });
+  }, [initialHandoffId, router]);
+
+  const handleScrape = async () => {
+    const validation = validateWithSchema(scrapeRequestSchema, { url });
+    setError(null);
+    setFieldErrors({});
+
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setError(validation.formErrors[0] ?? validation.fieldErrors.url?.[0] ?? 'Check the job URL.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const res = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(validation.data),
       });
       const data = await res.json();
       
       if (!data.success) {
+        if (data.fieldErrors) setFieldErrors(data.fieldErrors);
         throw new Error(data.error);
       }
       
@@ -54,17 +124,27 @@ export default function AddJobWizard() {
   };
 
   const handleExtract = async () => {
-    setIsLoading(true);
+    const validation = validateWithSchema(extractRequestSchema, { rawText });
     setError(null);
+    setFieldErrors({});
+
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setError(validation.formErrors[0] ?? validation.fieldErrors.rawText?.[0] ?? 'Check the job description text.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText }),
+        body: JSON.stringify(validation.data),
       });
       const data = await res.json();
       
       if (!data.success) {
+        if (data.fieldErrors) setFieldErrors(data.fieldErrors);
         throw new Error(data.error);
       }
       
@@ -79,14 +159,24 @@ export default function AddJobWizard() {
   };
 
   const handleSave = async () => {
+    const validation = validateWithSchema(applicationCreateSchema, {
+      url,
+      raw_text: rawText,
+      job_data: extractedData,
+      match_score: matchScore || 0,
+    });
+    setError(null);
+    setFieldErrors({});
+
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setError(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the application details.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await createApplication({
-        url,
-        raw_text: rawText,
-        job_data: extractedData,
-        match_score: matchScore || 0,
-      });
+      await createApplication(validation.data);
       router.push('/applications');
       router.refresh();
     } catch (err: any) {
@@ -97,81 +187,97 @@ export default function AddJobWizard() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Stepper */}
-      <div className="flex items-center justify-between mb-12">
+    <section className="job-intake">
+      <div className="job-intake__rail" aria-label="Add job progress">
         {[
-          { label: 'Input Source', icon: LinkIcon },
-          { label: 'Review Text', icon: FileText },
-          { label: 'AI Extraction', icon: Sparkles },
-        ].map((s, i) => (
-          <React.Fragment key={s.label}>
-            <div className="flex flex-col items-center gap-2">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-                step > i + 1 ? 'bg-emerald-500 border-emerald-500 text-white' : 
-                step === i + 1 ? 'border-blue-600 text-blue-600 ring-4 ring-blue-500/10' : 
-                'border-slate-200 text-slate-400'
-              }`}>
-                {step > i + 1 ? <Check size={20} /> : <s.icon size={20} />}
-              </div>
-              <span className={`text-xs font-semibold ${step >= i + 1 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                {s.label}
+          { label: 'Source', description: 'URL or manual text', icon: LinkIcon },
+          { label: 'Review', description: `${rawText.trim().length.toLocaleString()} characters`, icon: FileText },
+          { label: 'Extract', description: matchScore === null ? 'AI parse pending' : `${matchScore}% match`, icon: Sparkles },
+        ].map((s, i) => {
+          const stepNumber = i + 1;
+          const isCurrent = step === stepNumber;
+          const isDone = step > stepNumber;
+          const Icon = s.icon;
+
+          return (
+            <div key={s.label} className={`job-intake-step ${isCurrent ? 'is-current' : ''} ${isDone ? 'is-done' : ''}`}>
+              <span className="job-intake-step__icon">
+                {isDone ? <Check size={18} /> : <Icon size={18} />}
+              </span>
+              <span>
+                <strong>{s.label}</strong>
+                <em>{s.description}</em>
               </span>
             </div>
-            {i < 2 && <div className={`flex-1 h-0.5 mx-4 ${step > i + 1 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800'}`} />}
-          </React.Fragment>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Step 1: URL Input */}
+      <div className="job-intake__stage">
       {step === 1 && (
-        <div className="glass-card p-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <h2 className="text-2xl font-bold mb-2">How do you want to add the job?</h2>
-          <p className="text-slate-500 mb-8">Enter the job listing URL and we'll try to scrape the details for you.</p>
+        <div className="job-capture-card">
+          <div className="job-capture-card__header">
+            <span><Sparkles size={16} /> Intake source</span>
+            <h2>Bring in a listing</h2>
+            <p>Start from a public job URL, or jump straight to a manual description paste when the site blocks scraping.</p>
+          </div>
           
-          <div className="flex flex-col gap-6">
-            <div>
-              <label className="block text-sm font-medium mb-2">Job URL</label>
-              <div className="flex gap-2">
+          <div className="job-source-grid">
+            <div className="job-source-panel is-primary">
+              <div className="job-source-panel__label">
+                <LinkIcon size={18} />
+                <span>Scrape from URL</span>
+              </div>
+              <label className="job-url-field">
                 <input
                   type="url"
                   placeholder="https://company.lever.co/job/123..."
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    clearFieldError('url');
+                  }}
+                  aria-invalid={Boolean(firstError('url'))}
                 />
+              </label>
+              {firstError('url') && <p className="job-field-error">{firstError('url')}</p>}
+
                 <button
                   onClick={handleScrape}
-                  disabled={!url || isLoading}
-                  className="btn-primary px-8 rounded-2xl shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                  disabled={isLoading}
+                className="job-action-button is-primary"
                 >
-                  {isLoading ? <Loader2 size={20} className="animate-spin" /> : 'Scrape'}
+                {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={18} />}
+                Scrape listing
                 </button>
               </div>
-            </div>
 
-            <div className="relative py-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+            <div className="job-source-panel">
+              <div className="job-source-panel__label">
+                <ClipboardPaste size={18} />
+                <span>Manual fallback</span>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-transparent text-slate-500 font-medium">Or paste manually</span>
-              </div>
-            </div>
-
+              <p>Paste the JD yourself when the page is behind auth, a job board overlay, or an extension capture.</p>
             <button
               onClick={() => setStep(2)}
-              className="w-full p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] text-slate-500 hover:border-blue-400 hover:text-blue-600 transition-all font-semibold flex items-center justify-center gap-2"
+                className="job-action-button is-secondary"
             >
               <FileText size={20} />
-              Paste Job Description Text
+                Paste job text
             </button>
+            </div>
           </div>
           
           {error && (
-            <div className="mt-6 p-4 bg-red-50 dark:bg-red-950/20 text-red-600 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3">
+            <div className="job-intake-error">
               <AlertCircle size={20} />
               <p className="text-sm">{error}</p>
+            </div>
+          )}
+          {isLoading && initialHandoffId && (
+            <div className="job-intake-notice">
+              <Loader2 size={18} className="animate-spin" />
+              <p>Loading Browser JD Capture...</p>
             </div>
           )}
         </div>
@@ -179,29 +285,47 @@ export default function AddJobWizard() {
 
       {/* Step 2: Review/Paste Text */}
       {step === 2 && (
-        <div className="glass-card p-10 animate-in fade-in slide-in-from-right-4 duration-300">
-          <h2 className="text-2xl font-bold mb-2">Review Job Description</h2>
-          <p className="text-slate-500 mb-6">Make sure the text below contains the job requirements and company info.</p>
+        <div className="job-review-card">
+          <div className="job-review-card__header">
+            <div>
+              <span><FileText size={16} /> Source text</span>
+              <h2>Review the job description</h2>
+              <p>Keep responsibilities, requirements, benefits, and company context. Remove navigation clutter before extraction.</p>
+            </div>
+            <strong>{rawText.trim().length.toLocaleString()} chars</strong>
+          </div>
+          {handoffNotice && (
+            <div className="job-intake-notice is-review">
+              <Check size={18} />
+              <p>{handoffNotice}</p>
+            </div>
+          )}
           
           <textarea
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(e) => {
+              setRawText(e.target.value);
+              clearFieldError('rawText');
+            }}
             rows={12}
-            className="w-full p-6 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all mb-8 resize-y text-sm leading-relaxed"
+            className="job-description-editor"
             placeholder="Paste the job description here..."
+            aria-invalid={Boolean(firstError('rawText'))}
           />
+          {firstError('rawText') && <p className="job-field-error">{firstError('rawText')}</p>}
 
-          <div className="flex justify-between">
+          <div className="job-review-actions">
             <button
               onClick={() => setStep(1)}
-              className="px-6 py-3 text-slate-500 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              className="job-action-button is-ghost"
             >
+              <ArrowLeft size={18} />
               Back
             </button>
             <button
               onClick={handleExtract}
-              disabled={!rawText || isLoading}
-              className="btn-primary px-10 py-4 rounded-2xl shadow-lg shadow-blue-500/20"
+              disabled={isLoading}
+              className="job-action-button is-primary"
             >
               {isLoading ? (
                 <>
@@ -221,72 +345,66 @@ export default function AddJobWizard() {
 
       {/* Step 3: Review Extraction & Match Score */}
       {step === 3 && extractedData && (
-        <div className="flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-300">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Data */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
-              <div className="glass-card p-10">
-                <div className="flex items-start justify-between mb-6">
+        <div className="job-result-grid">
+          <div className="job-result-card">
+                <div className="job-result-card__header">
                   <div>
-                    <h2 className="text-3xl font-bold mb-2">{extractedData.title}</h2>
-                    <div className="flex flex-wrap gap-4 text-slate-500">
-                      <span className="flex items-center gap-1.5">
+                <span><Sparkles size={16} /> Extracted role</span>
+                    <h2>{extractedData.title}</h2>
+                    <div className="job-result-meta">
+                      <span>
                         <Building2 size={18} />
                         {extractedData.company}
                       </span>
-                      <span className="flex items-center gap-1.5">
+                      <span>
                         <MapPin size={18} />
                         {extractedData.location}
                       </span>
-                      <span className="flex items-center gap-1.5">
+                      <span>
                         <Briefcase size={18} />
                         {extractedData.type}
                       </span>
                     </div>
                   </div>
                   {extractedData.salary && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 border border-blue-100 dark:border-blue-900/50">
+                <div className="job-salary-badge">
                       <CircleDollarSign size={20} />
                       {extractedData.salary}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">Required Skills</h3>
-                    <div className="flex flex-wrap gap-2">
+            <div className="job-result-section">
+              <h3>Required skills</h3>
+              <div className="job-skill-list">
                       {extractedData.requiredSkills.map((s: string) => (
-                        <span key={s} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-medium">
-                          {s}
-                        </span>
+                  <span key={s}>{s}</span>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">Responsibilities</h3>
-                    <ul className="space-y-2">
+            <div className="job-result-section">
+              <h3>Responsibilities</h3>
+              <ul className="job-responsibility-list">
                       {extractedData.responsibilities.slice(0, 5).map((r: string, i: number) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                          <span className="mt-2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                  <li key={i}>
+                    <span />
                           {r}
                         </li>
                       ))}
                     </ul>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Sidebar: Match Score */}
-            <div className="lg:col-span-1">
-              <div className="glass-card p-10 sticky top-8 text-center">
-                <h3 className="text-lg font-bold mb-6">AI Match Score</h3>
-                <div className="relative inline-flex items-center justify-center mb-6">
+          <aside className="job-match-card">
+            <div className="job-match-card__header">
+              <Gauge size={18} />
+              <span>AI match score</span>
+            </div>
+            <div className="job-match-ring">
                   <svg className="w-32 h-32">
                     <circle
-                      className="text-slate-200 dark:text-slate-800"
+                  className="job-match-ring__track"
                       strokeWidth="8"
                       stroke="currentColor"
                       fill="transparent"
@@ -295,7 +413,7 @@ export default function AddJobWizard() {
                       cy="64"
                     />
                     <circle
-                      className="text-blue-600 transition-all duration-1000 ease-out"
+                  className="job-match-ring__value"
                       strokeWidth="8"
                       strokeDasharray={364.4}
                       strokeDashoffset={364.4 - (364.4 * (matchScore || 0)) / 100}
@@ -307,25 +425,31 @@ export default function AddJobWizard() {
                       cy="64"
                     />
                   </svg>
-                  <span className="absolute text-4xl font-black text-blue-600">{matchScore}%</span>
+              <span>{matchScore}%</span>
                 </div>
-                <p className="text-sm text-slate-500 mb-8">
+            <p>
                   {matchScore && matchScore > 80 ? 'Excellent match! You should definitely apply.' : 
                    matchScore && matchScore > 60 ? 'Good match. Consider tailoring your CV.' : 
                    'Low match. Significant skill gaps identified.'}
                 </p>
+            {error && (
+              <div className="job-intake-error is-compact">
+                <AlertCircle size={18} />
+                <p>{error}</p>
+              </div>
+            )}
                 <button
                   onClick={handleSave}
                   disabled={isLoading}
-                  className="btn-primary w-full p-5 rounded-2xl shadow-xl shadow-blue-500/20"
+              className="job-action-button is-primary"
                 >
-                  {isLoading ? <Loader2 size={24} className="animate-spin" /> : 'Save Application'}
+              {isLoading ? <Loader2 size={22} className="animate-spin" /> : <Save size={18} />}
+              Save application
                 </button>
-              </div>
-            </div>
-          </div>
+          </aside>
         </div>
       )}
-    </div>
+      </div>
+    </section>
   );
 }

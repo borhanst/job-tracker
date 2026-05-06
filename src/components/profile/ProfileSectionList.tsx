@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { addProfileItem, deleteProfileItem } from '@/lib/profile/actions';
+import { profileItemSchemas, validateWithSchema, type ProfileItemTable } from '@/lib/validation';
 
 interface ProfileSectionListProps {
   title: string;
@@ -16,29 +17,55 @@ export default function ProfileSectionList({ title, items, table, fields, render
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const resetForm = () => {
     setFormData({});
     setIsAdding(false);
+    setMessage('');
+    setFieldErrors({});
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage('');
+    setFieldErrors({});
+
+    if (!Object.prototype.hasOwnProperty.call(profileItemSchemas, table)) {
+      setMessage('Unsupported profile section.');
+      return;
+    }
+
+    const validation = validateWithSchema(profileItemSchemas[table as ProfileItemTable], formData);
+    if (!validation.success) {
+      setFieldErrors(validation.fieldErrors);
+      setMessage(validation.formErrors[0] ?? 'Check the highlighted fields.');
+      return;
+    }
+
     setIsSaving(true);
     
     try {
-      await addProfileItem(table, formData);
+      await addProfileItem(table, validation.data);
       resetForm();
-    } catch (error) {
-      alert(`Failed to save ${title.toLowerCase()}`);
+    } catch (error: any) {
+      setMessage(error.message || `Failed to save ${title.toLowerCase()}`);
     } finally {
       setIsSaving(false);
     }
   };
+  const firstError = (field: string) => fieldErrors[field]?.[0];
+  const inputClass = (_field: string) => 'profile-input';
 
   const handleDelete = async (id: string) => {
     if (confirm(`Are you sure you want to delete this ${title.toLowerCase()}?`)) {
@@ -51,13 +78,16 @@ export default function ProfileSectionList({ title, items, table, fields, render
   };
 
   return (
-    <div className="glass-card p-10">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">{title}</h2>
+    <div className="profile-panel">
+      <div className="profile-panel__bar">
+        <div>
+          <span>Profile signal</span>
+          <h2>{title}</h2>
+        </div>
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all"
+            className="profile-add-button"
           >
             <Plus size={18} />
             Add {title}
@@ -66,39 +96,41 @@ export default function ProfileSectionList({ title, items, table, fields, render
       </div>
 
       {isAdding ? (
-        <form onSubmit={handleSubmit} className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <form onSubmit={handleSubmit} className="profile-edit-form" noValidate>
+          {message && <p className="profile-field-error">{message}</p>}
+          <div className="profile-field-grid">
             {fields.map(field => (
-              <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                <label className="block text-sm font-medium mb-1">{field.label}</label>
+              <div key={field.name} className={`profile-field ${field.type === 'textarea' ? 'profile-field--wide' : ''}`}>
+                <label>{field.label}</label>
                 {field.type === 'select' ? (
-                  <select name={field.name} required value={formData[field.name] || ''} onChange={handleChange} className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
+                  <select name={field.name} value={formData[field.name] || ''} onChange={handleChange} className={inputClass(field.name)} aria-invalid={Boolean(firstError(field.name))}>
                     <option value="" disabled>Select {field.label}</option>
                     {field.options?.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
                   </select>
                 ) : (
-                  <input type={field.type} name={field.name} required placeholder={field.placeholder} value={formData[field.name] || ''} onChange={handleChange} className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg" />
+                  <input type={field.type} name={field.name} placeholder={field.placeholder} value={formData[field.name] || ''} onChange={handleChange} className={inputClass(field.name)} aria-invalid={Boolean(firstError(field.name))} />
                 )}
+                {firstError(field.name) && <p className="profile-field-error">{firstError(field.name)}</p>}
               </div>
             ))}
           </div>
-          <div className="flex justify-end gap-3 mt-4">
-            <button type="button" onClick={resetForm} className="px-4 py-2 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">Cancel</button>
-            <button type="submit" disabled={isSaving} className="btn-primary px-8 py-2 rounded-xl flex items-center gap-2">
+          <div className="profile-actions">
+            <button type="button" onClick={resetForm} className="profile-cancel">Cancel</button>
+            <button type="submit" disabled={isSaving} className="profile-save">
               {isSaving && <Loader2 size={16} className="animate-spin" />} Save
             </button>
           </div>
         </form>
       ) : items.length === 0 ? (
-        <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-          <p className="text-slate-500 mb-4">No {title.toLowerCase()} added yet.</p>
+        <div className="profile-empty">
+          <p>No {title.toLowerCase()} added yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="profile-chip-grid">
           {items.map((item) => (
-            <div key={item.id} className="group relative p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl hover:border-blue-300 dark:hover:border-blue-600 transition-all flex justify-between items-center shadow-sm">
+            <div key={item.id} className="profile-signal-card">
               <div>{renderItem(item)}</div>
-              <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"><Trash2 size={16} /></button>
+              <button onClick={() => handleDelete(item.id)}><Trash2 size={16} /></button>
             </div>
           ))}
         </div>

@@ -3,28 +3,35 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { encryptKey } from './encryption';
-
-const DEFAULT_MODELS: Record<string, string> = {
-  gemini: 'gemini-2.5-flash',
-  openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-haiku-20240307',
-  groq: 'llama3-8b-8192',
-};
-
-const PROVIDERS = ['gemini', 'openai', 'anthropic', 'groq'] as const;
+import {
+  AI_PROVIDERS,
+  DEFAULT_AI_MODELS,
+  settingsSchema,
+  validateWithSchema,
+  type AiProvider,
+} from '@/lib/validation';
 
 function normalizeModel(provider: string, model: string | null | undefined) {
-  if (!model) return DEFAULT_MODELS[provider] || '';
+  if (!model) return DEFAULT_AI_MODELS[provider as AiProvider] || '';
   if (provider === 'gemini' && model.startsWith('gemini-1.5')) {
-    return DEFAULT_MODELS.gemini;
+    return DEFAULT_AI_MODELS.gemini;
   }
   return model;
+}
+
+function hasSavedKeyForProvider(settings: any, provider: string) {
+  if (!settings) return false;
+  if (provider === 'gemini') return Boolean(settings.gemini_key_enc);
+  if (provider === 'openai') return Boolean(settings.openai_key_enc);
+  if (provider === 'anthropic') return Boolean(settings.anthropic_key_enc);
+  if (provider === 'groq') return Boolean(settings.groq_key_enc);
+  return false;
 }
 
 function getProviderModels(settings: any) {
   const savedModels = settings.provider_models || {};
 
-  return PROVIDERS.reduce<Record<string, string>>((models, provider) => {
+  return AI_PROVIDERS.reduce<Record<string, string>>((models, provider) => {
     const savedModel =
       typeof savedModels === 'object' && savedModels !== null
         ? savedModels[provider]
@@ -61,8 +68,8 @@ export async function getUserSettings() {
     const defaultSettings = {
       user_id: user.id,
       provider: 'gemini',
-      model: DEFAULT_MODELS.gemini,
-      provider_models: { gemini: DEFAULT_MODELS.gemini },
+      model: DEFAULT_AI_MODELS.gemini,
+      provider_models: { gemini: DEFAULT_AI_MODELS.gemini },
     };
     await supabase.from('user_settings').insert(defaultSettings);
     return {
@@ -115,30 +122,41 @@ export async function updateUserSettings(provider: string, model: string, newKey
 
   const { data: existingSettings, error: fetchError } = await supabase
     .from('user_settings')
-    .select('provider_models')
+    .select('provider_models, gemini_key_enc, openai_key_enc, anthropic_key_enc, groq_key_enc')
     .eq('user_id', user.id)
     .single();
 
   if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
 
+  const validation = validateWithSchema(settingsSchema, {
+    provider,
+    model: normalizedModel,
+    newKey: newKey || '',
+    hasExistingKey: hasSavedKeyForProvider(existingSettings, provider),
+  });
+
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the AI provider settings.');
+  }
+
   const providerModels = {
     ...(existingSettings?.provider_models || {}),
-    [provider]: normalizedModel,
+    [validation.data.provider]: validation.data.model,
   };
 
   const updatePayload: any = {
     user_id: user.id,
-    provider,
-    model: normalizedModel,
+    provider: validation.data.provider,
+    model: validation.data.model,
     provider_models: providerModels,
   };
 
-  if (newKey) {
-    const encryptedKey = encryptKey(newKey);
-    if (provider === 'gemini') updatePayload.gemini_key_enc = encryptedKey;
-    if (provider === 'openai') updatePayload.openai_key_enc = encryptedKey;
-    if (provider === 'anthropic') updatePayload.anthropic_key_enc = encryptedKey;
-    if (provider === 'groq') updatePayload.groq_key_enc = encryptedKey;
+  if (validation.data.newKey) {
+    const encryptedKey = encryptKey(validation.data.newKey);
+    if (validation.data.provider === 'gemini') updatePayload.gemini_key_enc = encryptedKey;
+    if (validation.data.provider === 'openai') updatePayload.openai_key_enc = encryptedKey;
+    if (validation.data.provider === 'anthropic') updatePayload.anthropic_key_enc = encryptedKey;
+    if (validation.data.provider === 'groq') updatePayload.groq_key_enc = encryptedKey;
   }
 
   const { error } = await supabase

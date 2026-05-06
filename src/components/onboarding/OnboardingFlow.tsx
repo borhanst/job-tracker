@@ -22,8 +22,17 @@ import {
   saveOnboardingSkills,
   saveOnboardingSummary,
 } from '@/lib/onboarding/actions';
+import {
+  onboardingEducationSchema,
+  onboardingExperienceSchema,
+  onboardingPersonalSchema,
+  onboardingSkillsSchema,
+  onboardingSummarySchema,
+  validateWithSchema,
+} from '@/lib/validation';
 
 type StepId = 'personal' | 'summary' | 'skills' | 'background' | 'finish';
+type OnboardingFieldError = Partial<Record<string, string[]>>;
 
 type OnboardingFlowProps = {
   initialProfile: any;
@@ -53,6 +62,7 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
   const [activeStep, setActiveStep] = useState<StepId>(() => firstIncompleteStep(initialProfile));
   const [percentage, setPercentage] = useState(initialProfile.profile_completion_percentage || 0);
   const [message, setMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<OnboardingFieldError>({});
   const [isPending, startTransition] = useTransition();
 
   const [personal, setPersonal] = useState({
@@ -93,6 +103,7 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
 
   const runStep = (task: () => Promise<{ profile_completion_percentage: number }>, nextStep: StepId) => {
     setMessage('');
+    setFieldErrors({});
     startTransition(async () => {
       try {
         const completion = await task();
@@ -102,6 +113,21 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
       }
     });
   };
+
+  const setValidationErrors = (errors: OnboardingFieldError, formErrors: string[] = []) => {
+    setFieldErrors(errors);
+    setMessage(formErrors[0] ?? '');
+  };
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const firstFieldError = (field: string) => fieldErrors[field]?.[0];
 
   const continueToDashboard = () => {
     router.push('/dashboard');
@@ -159,24 +185,54 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
           {activeStep === 'personal' && (
             <form
               className="onboarding-form"
+              noValidate
               onSubmit={(event) => {
                 event.preventDefault();
-                runStep(() => saveOnboardingPersonal(personal), 'summary');
+                const validation = validateWithSchema(onboardingPersonalSchema, personal);
+                if (!validation.success) {
+                  setValidationErrors(validation.fieldErrors, validation.formErrors);
+                  return;
+                }
+                runStep(() => saveOnboardingPersonal(validation.data), 'summary');
               }}
             >
               <StepHeading icon={UserRound} title="Your contact baseline" />
-              <Field label="Full name">
-                <input required value={personal.full_name} onChange={(event) => setPersonal({ ...personal, full_name: event.target.value })} />
+              <Field label="Full name" error={firstFieldError('full_name')} errorId="onboarding-full-name-error">
+                <input
+                  value={personal.full_name}
+                  onChange={(event) => {
+                    setPersonal({ ...personal, full_name: event.target.value });
+                    clearFieldError('full_name');
+                  }}
+                  aria-invalid={Boolean(firstFieldError('full_name'))}
+                  aria-describedby={firstFieldError('full_name') ? 'onboarding-full-name-error' : undefined}
+                />
               </Field>
               <Field label="Email">
                 <input disabled value={initialProfile.email || ''} />
               </Field>
               <div className="onboarding-grid">
-                <Field label="Phone">
-                  <input required value={personal.phone} onChange={(event) => setPersonal({ ...personal, phone: event.target.value })} />
+                <Field label="Phone" error={firstFieldError('phone')} errorId="onboarding-phone-error">
+                  <input
+                    value={personal.phone}
+                    onChange={(event) => {
+                      setPersonal({ ...personal, phone: event.target.value });
+                      clearFieldError('phone');
+                    }}
+                    aria-invalid={Boolean(firstFieldError('phone'))}
+                    aria-describedby={firstFieldError('phone') ? 'onboarding-phone-error' : undefined}
+                  />
                 </Field>
-                <Field label="Location">
-                  <input required value={personal.location} onChange={(event) => setPersonal({ ...personal, location: event.target.value })} />
+                <Field label="Location" error={firstFieldError('location')} errorId="onboarding-location-error">
+                  <input
+                    value={personal.location}
+                    onChange={(event) => {
+                      setPersonal({ ...personal, location: event.target.value });
+                      clearFieldError('location');
+                    }}
+                    aria-invalid={Boolean(firstFieldError('location'))}
+                    aria-describedby={firstFieldError('location') ? 'onboarding-location-error' : undefined}
+                  />
                 </Field>
               </div>
               <StepActions pending={isPending} />
@@ -186,14 +242,29 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
           {activeStep === 'summary' && (
             <form
               className="onboarding-form"
+              noValidate
               onSubmit={(event) => {
                 event.preventDefault();
-                runStep(() => saveOnboardingSummary(summary), 'skills');
+                const validation = validateWithSchema(onboardingSummarySchema, { summary });
+                if (!validation.success) {
+                  setValidationErrors(validation.fieldErrors, validation.formErrors);
+                  return;
+                }
+                runStep(() => saveOnboardingSummary(validation.data.summary), 'skills');
               }}
             >
               <StepHeading icon={PenLine} title="A sharp professional summary" />
-              <Field label="Professional summary">
-                <textarea required rows={8} value={summary} onChange={(event) => setSummary(event.target.value)} />
+              <Field label="Professional summary" error={firstFieldError('summary')} errorId="onboarding-summary-error">
+                <textarea
+                  rows={8}
+                  value={summary}
+                  onChange={(event) => {
+                    setSummary(event.target.value);
+                    clearFieldError('summary');
+                  }}
+                  aria-invalid={Boolean(firstFieldError('summary'))}
+                  aria-describedby={firstFieldError('summary') ? 'onboarding-summary-error' : undefined}
+                />
               </Field>
               <StepActions pending={isPending} />
             </form>
@@ -202,23 +273,36 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
           {activeStep === 'skills' && (
             <form
               className="onboarding-form"
+              noValidate
               onSubmit={(event) => {
                 event.preventDefault();
-                runStep(() => saveOnboardingSkills(skills), 'background');
+                const validation = validateWithSchema(onboardingSkillsSchema, { skills });
+                if (!validation.success) {
+                  setValidationErrors(validation.fieldErrors, validation.formErrors);
+                  return;
+                }
+                runStep(() => saveOnboardingSkills(validation.data.skills), 'background');
               }}
             >
               <StepHeading icon={Sparkles} title="Three skills recruiters should see first" />
               <div className="onboarding-skill-grid">
                 {skills.map((skill, index) => (
-                  <Field key={index} label={`Skill ${index + 1}`}>
+                  <Field
+                    key={index}
+                    label={`Skill ${index + 1}`}
+                    error={index === 0 ? firstFieldError('skills') : undefined}
+                    errorId={index === 0 ? 'onboarding-skills-error' : undefined}
+                  >
                     <input
-                      required={index < 3}
                       value={skill}
                       onChange={(event) => {
                         const next = [...skills];
                         next[index] = event.target.value;
                         setSkills(next);
+                        clearFieldError('skills');
                       }}
+                      aria-invalid={Boolean(firstFieldError('skills'))}
+                      aria-describedby={index === 0 && firstFieldError('skills') ? 'onboarding-skills-error' : undefined}
                     />
                   </Field>
                 ))}
@@ -233,14 +317,24 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
           {activeStep === 'background' && (
             <form
               className="onboarding-form"
+              noValidate
               onSubmit={(event) => {
                 event.preventDefault();
-                runStep(
-                  () => backgroundType === 'experience'
-                    ? saveOnboardingExperience(experience)
-                    : saveOnboardingEducation(education),
-                  'finish',
-                );
+                if (backgroundType === 'experience') {
+                  const validation = validateWithSchema(onboardingExperienceSchema, experience);
+                  if (!validation.success) {
+                    setValidationErrors(validation.fieldErrors, validation.formErrors);
+                    return;
+                  }
+                  runStep(() => saveOnboardingExperience(validation.data), 'finish');
+                } else {
+                  const validation = validateWithSchema(onboardingEducationSchema, education);
+                  if (!validation.success) {
+                    setValidationErrors(validation.fieldErrors, validation.formErrors);
+                    return;
+                  }
+                  runStep(() => saveOnboardingEducation(validation.data), 'finish');
+                }
               }}
             >
               <StepHeading icon={ShieldCheck} title="One proof point for your background" />
@@ -256,15 +350,40 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
               {backgroundType === 'experience' ? (
                 <>
                   <div className="onboarding-grid">
-                    <Field label="Company">
-                      <input required value={experience.company} onChange={(event) => setExperience({ ...experience, company: event.target.value })} />
+                    <Field label="Company" error={firstFieldError('company')} errorId="onboarding-company-error">
+                      <input
+                        value={experience.company}
+                        onChange={(event) => {
+                          setExperience({ ...experience, company: event.target.value });
+                          clearFieldError('company');
+                        }}
+                        aria-invalid={Boolean(firstFieldError('company'))}
+                        aria-describedby={firstFieldError('company') ? 'onboarding-company-error' : undefined}
+                      />
                     </Field>
-                    <Field label="Role title">
-                      <input required value={experience.title} onChange={(event) => setExperience({ ...experience, title: event.target.value })} />
+                    <Field label="Role title" error={firstFieldError('title')} errorId="onboarding-role-title-error">
+                      <input
+                        value={experience.title}
+                        onChange={(event) => {
+                          setExperience({ ...experience, title: event.target.value });
+                          clearFieldError('title');
+                        }}
+                        aria-invalid={Boolean(firstFieldError('title'))}
+                        aria-describedby={firstFieldError('title') ? 'onboarding-role-title-error' : undefined}
+                      />
                     </Field>
                   </div>
-                  <Field label="Start date">
-                    <input required type="date" value={experience.start_date} onChange={(event) => setExperience({ ...experience, start_date: event.target.value })} />
+                  <Field label="Start date" error={firstFieldError('start_date')} errorId="onboarding-experience-start-error">
+                    <input
+                      type="date"
+                      value={experience.start_date}
+                      onChange={(event) => {
+                        setExperience({ ...experience, start_date: event.target.value });
+                        clearFieldError('start_date');
+                      }}
+                      aria-invalid={Boolean(firstFieldError('start_date'))}
+                      aria-describedby={firstFieldError('start_date') ? 'onboarding-experience-start-error' : undefined}
+                    />
                   </Field>
                   <Field label="Brief impact">
                     <textarea rows={4} value={experience.description} onChange={(event) => setExperience({ ...experience, description: event.target.value })} />
@@ -272,19 +391,52 @@ export default function OnboardingFlow({ initialProfile }: OnboardingFlowProps) 
                 </>
               ) : (
                 <>
-                  <Field label="Institution">
-                    <input required value={education.institution} onChange={(event) => setEducation({ ...education, institution: event.target.value })} />
+                  <Field label="Institution" error={firstFieldError('institution')} errorId="onboarding-institution-error">
+                    <input
+                      value={education.institution}
+                      onChange={(event) => {
+                        setEducation({ ...education, institution: event.target.value });
+                        clearFieldError('institution');
+                      }}
+                      aria-invalid={Boolean(firstFieldError('institution'))}
+                      aria-describedby={firstFieldError('institution') ? 'onboarding-institution-error' : undefined}
+                    />
                   </Field>
                   <div className="onboarding-grid">
-                    <Field label="Degree">
-                      <input required value={education.degree} onChange={(event) => setEducation({ ...education, degree: event.target.value })} />
+                    <Field label="Degree" error={firstFieldError('degree')} errorId="onboarding-degree-error">
+                      <input
+                        value={education.degree}
+                        onChange={(event) => {
+                          setEducation({ ...education, degree: event.target.value });
+                          clearFieldError('degree');
+                        }}
+                        aria-invalid={Boolean(firstFieldError('degree'))}
+                        aria-describedby={firstFieldError('degree') ? 'onboarding-degree-error' : undefined}
+                      />
                     </Field>
-                    <Field label="Field">
-                      <input required value={education.field} onChange={(event) => setEducation({ ...education, field: event.target.value })} />
+                    <Field label="Field" error={firstFieldError('field')} errorId="onboarding-field-error">
+                      <input
+                        value={education.field}
+                        onChange={(event) => {
+                          setEducation({ ...education, field: event.target.value });
+                          clearFieldError('field');
+                        }}
+                        aria-invalid={Boolean(firstFieldError('field'))}
+                        aria-describedby={firstFieldError('field') ? 'onboarding-field-error' : undefined}
+                      />
                     </Field>
                   </div>
-                  <Field label="Start date">
-                    <input required type="date" value={education.start_date} onChange={(event) => setEducation({ ...education, start_date: event.target.value })} />
+                  <Field label="Start date" error={firstFieldError('start_date')} errorId="onboarding-education-start-error">
+                    <input
+                      type="date"
+                      value={education.start_date}
+                      onChange={(event) => {
+                        setEducation({ ...education, start_date: event.target.value });
+                        clearFieldError('start_date');
+                      }}
+                      aria-invalid={Boolean(firstFieldError('start_date'))}
+                      aria-describedby={firstFieldError('start_date') ? 'onboarding-education-start-error' : undefined}
+                    />
                   </Field>
                 </>
               )}
@@ -317,11 +469,22 @@ function StepHeading({ icon: Icon, title }: { icon: React.ElementType; title: st
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  error,
+  errorId,
+}: {
+  label: string;
+  children: React.ReactNode;
+  error?: string;
+  errorId?: string;
+}) {
   return (
     <label className="onboarding-field">
       <span>{label}</span>
       {children}
+      {error && <small id={errorId} className="onboarding-field-error">{error}</small>}
     </label>
   );
 }

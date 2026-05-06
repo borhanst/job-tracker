@@ -5,8 +5,11 @@
 | Term | Definition |
 | :--- | :--- |
 | **JD Scraper** | The automated system that extracts raw text from job listing URLs. |
-| **Browser JD Capture** | A Chrome extension intake path that captures user-selected job description content from the current webpage, preserving basic section structure, and sends it into the Add Job review flow. |
-| **JD Handoff** | A temporary, signed-in-user transfer of a captured job URL and raw job description text from Browser JD Capture into the Add Job review flow. |
+| **Browser JD Capture** | A Chrome extension intake path that captures one or more user-selected job description sections from the current webpage and sends them into the Add Job review flow. |
+| **Add Selection** | The extension action that appends the user's current page text selection to Capture Review. |
+| **Capture Review** | The extension-side checklist where a user reviews, removes, and reorders selected job description sections before sending them to the app. |
+| **JD Handoff** | A server-side record that transfers selected job description sections into Add Job and expires after 30 minutes or once consumed. |
+| **Web App Session** | The signed-in app session that authorizes Browser JD Capture and JD Handoff creation. |
 | **AI Extraction** | The process of converting raw job description text into structured data (company, title, skills, etc.). |
 | **Match Score** | A percentage (0-100%) calculated by AI that estimates how well a user's master profile aligns with a specific job description. |
 | **Master Profile** | The comprehensive, single source of truth for a user's professional data (experience, skills, education) used to seed all AI generations. |
@@ -27,3 +30,18 @@
 | **Landing Footer** | A compact footer with brand, product links, account links, social icons, and trust-oriented legal links. |
 | **Primary Landing CTA** | The main call-to-action label is “Get Started”. |
 | **Landing Social Icons** | The footer social icon set is LinkedIn, X, and Instagram. |
+
+## Relationships
+
+- **Browser JD Capture** creates a **JD Handoff** for the signed-in user.
+- **Add Selection** appends one selected page section to **Capture Review**.
+- **Capture Review** happens inside **Browser JD Capture** before a **JD Handoff** is created.
+- **Browser JD Capture** relies on the user's **Web App Session** and does not store app auth tokens inside the extension.
+- A **JD Handoff** feeds the existing Add Job review flow before **AI Extraction**.
+- A **JD Handoff** is consumed when the Add Job review flow loads it and otherwise expires after 30 minutes.
+- **Browser JD Capture** never creates an **Application** directly.
+- **Browser JD Capture** complements the **JD Scraper** and manual paste paths; it does not replace them.
+
+## Flagged Ambiguities
+
+- "Browser extension" is in scope only as **Browser JD Capture**: a narrow Chrome extension path for one or more user-selected JD sections and the current page URL, not fully automatic capture from any site.

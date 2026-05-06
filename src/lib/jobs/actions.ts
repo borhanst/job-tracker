@@ -2,10 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { applicationCreateSchema, applicationStatusUpdateSchema, validateWithSchema } from '@/lib/validation';
 
 export async function createApplication(data: {
-  url?: string;
+  url?: string | null;
   raw_text: string;
   job_data: any;
   match_score: number;
@@ -16,15 +16,22 @@ export async function createApplication(data: {
 
   if (!user) throw new Error('Not authenticated');
 
+  const validation = validateWithSchema(applicationCreateSchema, data);
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the application fields.');
+  }
+
+  const applicationInput = validation.data;
+
   const { data: application, error } = await supabase
     .from('applications')
     .insert({
       user_id: user.id,
-      url: data.url,
-      raw_text: data.raw_text,
-      job_data: data.job_data,
-      match_score: data.match_score,
-      status: data.status || 'saved',
+      url: applicationInput.url,
+      raw_text: applicationInput.raw_text,
+      job_data: applicationInput.job_data,
+      match_score: applicationInput.match_score,
+      status: applicationInput.status,
     })
     .select()
     .single();
@@ -64,10 +71,15 @@ export async function updateApplicationStatus(id: string, status: string) {
 
   if (!user) throw new Error('Not authenticated');
 
+  const validation = validateWithSchema(applicationStatusUpdateSchema, { id, status });
+  if (!validation.success) {
+    throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the application status.');
+  }
+
   const { error } = await supabase
     .from('applications')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id)
+    .update({ status: validation.data.status, updated_at: new Date().toISOString() })
+    .eq('id', validation.data.id)
     .eq('user_id', user.id);
 
   if (error) {
