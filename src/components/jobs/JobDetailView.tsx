@@ -18,7 +18,9 @@ import {
   ExternalLink,
   Gauge,
   Layers3,
-  TimerReset
+  TimerReset,
+  Expand,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateApplicationStatus } from '@/lib/jobs/actions';
@@ -47,6 +49,8 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [status, setStatus] = useState(application.status);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [selectedCvIndex, setSelectedCvIndex] = useState<number>(0);
+  const [isCvStudioOpen, setIsCvStudioOpen] = useState(false);
 
   const handleStatusChange = async (newStatus: string) => {
     setIsUpdating(true);
@@ -65,8 +69,16 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
   const niceToHaveSkills = job_data.niceToHaveSkills || [];
   const responsibilities = job_data.responsibilities || [];
   const documents = application.generated_documents || [];
-  const cvDocument = documents.find((d: any) => d.type === 'cv');
+  const cvDocuments = documents.filter((d: any) => d.type === 'cv');
   const coverLetterDocument = documents.find((d: any) => d.type === 'cover_letter');
+  const selectedCv = cvDocuments[selectedCvIndex] || null;
+  const selectedCvInitialData = selectedCv
+    ? {
+        application,
+        profile: application.profile,
+        tailoredData: selectedCv.content,
+      }
+    : null;
 
   return (
     <ProtectedPage maxWidth="wide">
@@ -234,18 +246,96 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
           {activeTab === 'cvs' && (
             <div className="application-detail-document-panel">
               <div className="application-detail-panel__header">
-                <span><Sparkles size={16} /> Tailored document</span>
-                <h3>Generated CV</h3>
-                <p>{cvDocument ? 'Review or regenerate the CV tailored to this role.' : 'Generate a CV tuned to the extracted role and your profile.'}</p>
+                <span><Sparkles size={16} /> CV Gallery</span>
+                <h3>Generated CVs</h3>
+                <p>
+                  {cvDocuments.length > 0
+                    ? 'Your generated CV versions are shown as quick previews. Click any card to open a full-screen editing studio.'
+                    : 'No CV generated yet. Start with a fresh full-screen studio and create your first version.'}
+                </p>
               </div>
-              <CVBuilder 
-                applicationId={application.id} 
-                initialData={cvDocument ? {
-                  application: application,
-                  profile: application.profile,
-                  tailoredData: cvDocument.content
-                } : null}
-              />
+
+              <div className="application-cv-gallery">
+                {cvDocuments.length > 0 ? (
+                  cvDocuments.map((document: any, index: number) => (
+                    <button
+                      key={document.id || `${document.type}-${index}`}
+                      type="button"
+                      className="application-cv-card"
+                      onClick={() => {
+                        setSelectedCvIndex(index);
+                        setIsCvStudioOpen(true);
+                      }}
+                    >
+                      <div className="application-cv-card__topbar">
+                        <span>Version {cvDocuments.length - index}</span>
+                        <Expand size={15} />
+                      </div>
+                      <div className="application-cv-card__sheet" aria-hidden="true">
+                        <strong>{application.profile?.full_name || 'Candidate'}</strong>
+                        <em>{job_data.title || 'Target role'}</em>
+                        <i>{job_data.company || 'Company'}</i>
+                        <u />
+                        <u />
+                        <u className="is-short" />
+                      </div>
+                      <p>
+                        {document.created_at
+                          ? new Date(document.created_at).toLocaleString()
+                          : 'Saved CV snapshot'}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <div className="application-cv-empty">
+                    <Sparkles size={18} />
+                    <p>Create your first tailored CV for this role.</p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="application-cv-card is-generate"
+                  onClick={() => {
+                    setSelectedCvIndex(0);
+                    setIsCvStudioOpen(true);
+                  }}
+                >
+                  <div className="application-cv-card__topbar">
+                    <span>New Version</span>
+                    <Sparkles size={15} />
+                  </div>
+                  <div className="application-cv-card__sheet is-new" aria-hidden="true">
+                    <strong>AI Tailored Studio</strong>
+                    <em>Generate and compare variants</em>
+                    <i>Open full-screen workspace</i>
+                    <u />
+                    <u className="is-short" />
+                  </div>
+                  <p>Launch the generator</p>
+                </button>
+              </div>
+
+              {isCvStudioOpen && (
+                <div className="application-cv-modal" role="dialog" aria-modal="true" aria-label="CV studio">
+                  <div className="application-cv-modal__backdrop" onClick={() => setIsCvStudioOpen(false)} />
+                  <div className="application-cv-modal__content">
+                    <div className="application-cv-modal__topbar">
+                      <div>
+                        <span><Sparkles size={15} /> CV Studio</span>
+                        <h4>{selectedCv ? `Version ${cvDocuments.length - selectedCvIndex}` : 'New tailored version'}</h4>
+                      </div>
+                      <button type="button" onClick={() => setIsCvStudioOpen(false)} aria-label="Close CV studio">
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <CVBuilder
+                      applicationId={application.id}
+                      initialData={selectedCvInitialData}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

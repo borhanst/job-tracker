@@ -31,10 +31,19 @@ type AddJobWizardProps = {
   initialHandoffId?: string;
 };
 
+const DRAFT_URL_KEY = 'add-job-draft-url';
+const DRAFT_RAW_TEXT_KEY = 'add-job-draft-raw-text';
+
+function readDraftValue(key: string) {
+  if (typeof window === 'undefined') return '';
+  return window.sessionStorage.getItem(key) || '';
+}
+
 export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
+  const totalSteps = 3;
   const [step, setStep] = useState(1);
-  const [url, setUrl] = useState('');
-  const [rawText, setRawText] = useState('');
+  const [url, setUrl] = useState(() => readDraftValue(DRAFT_URL_KEY));
+  const [rawText, setRawText] = useState(() => readDraftValue(DRAFT_RAW_TEXT_KEY));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
@@ -53,6 +62,16 @@ export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(DRAFT_URL_KEY, url);
+  }, [url]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(DRAFT_RAW_TEXT_KEY, rawText);
+  }, [rawText]);
 
   useEffect(() => {
     if (!initialHandoffId || loadedHandoffRef.current === initialHandoffId) return;
@@ -74,10 +93,18 @@ export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
           throw new Error(data.error || 'JD Handoff could not be loaded');
         }
 
-        setUrl(data.handoff.url);
-        setRawText(data.handoff.rawText);
+        setUrl((currentUrl) => currentUrl || data.handoff.url);
+        setRawText((currentText) => {
+          const existing = currentText.trim();
+          const incoming = String(data.handoff.rawText || '').trim();
+
+          if (!existing) return incoming;
+          if (!incoming) return existing;
+
+          return `${existing}\n\n${incoming}`;
+        });
         setStep(2);
-        setHandoffNotice('Browser JD Capture loaded. Review the selected sections before AI Extraction.');
+        setHandoffNotice('Browser JD Capture appended. Review the selected sections before AI Extraction.');
       })
       .catch((err: any) => {
         setStep(1);
@@ -177,6 +204,10 @@ export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
     setIsLoading(true);
     try {
       await createApplication(validation.data);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(DRAFT_URL_KEY);
+        window.sessionStorage.removeItem(DRAFT_RAW_TEXT_KEY);
+      }
       router.push('/applications');
       router.refresh();
     } catch (err: any) {
@@ -189,6 +220,10 @@ export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
   return (
     <section className="job-intake">
       <div className="job-intake__rail" aria-label="Add job progress">
+        <div className="job-intake__rail-header">
+          <p>Job Add Flow</p>
+          <strong>Step {step} of {totalSteps}</strong>
+        </div>
         {[
           { label: 'Source', description: 'URL or manual text', icon: LinkIcon },
           { label: 'Review', description: `${rawText.trim().length.toLocaleString()} characters`, icon: FileText },
@@ -198,9 +233,10 @@ export default function AddJobWizard({ initialHandoffId }: AddJobWizardProps) {
           const isCurrent = step === stepNumber;
           const isDone = step > stepNumber;
           const Icon = s.icon;
+          const isLocked = step < stepNumber;
 
           return (
-            <div key={s.label} className={`job-intake-step ${isCurrent ? 'is-current' : ''} ${isDone ? 'is-done' : ''}`}>
+            <div key={s.label} className={`job-intake-step ${isCurrent ? 'is-current' : ''} ${isDone ? 'is-done' : ''} ${isLocked ? 'is-locked' : ''}`}>
               <span className="job-intake-step__icon">
                 {isDone ? <Check size={18} /> : <Icon size={18} />}
               </span>
