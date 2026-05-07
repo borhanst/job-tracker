@@ -3459,6 +3459,63 @@ h1, h2, h3, h4 {
   border-color: rgba(251, 191, 36, 0.35);
 }
 
+.cv-checklist-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+
+.cv-checklist-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.cv-checklist-modal__content {
+  position: relative;
+  max-width: 36rem;
+  margin: 8vh auto;
+  background: var(--card);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: var(--radius-xl);
+  padding: 1rem;
+  box-shadow: var(--shadow-xl);
+}
+
+.cv-checklist-group {
+  margin-top: 0.8rem;
+}
+
+.cv-checklist-group ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+}
+
+.cv-checklist-group li {
+  margin-bottom: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.cv-checklist-warning {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.cv-checklist-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.cv-checklist-actions .cv-secondary-action,
+.cv-checklist-actions .cv-download-action {
+  width: auto;
+  margin: 0;
+  min-width: 9.5rem;
+}
+
 .cv-template-option {
   justify-content: flex-start;
   width: 100%;

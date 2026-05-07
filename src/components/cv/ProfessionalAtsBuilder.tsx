@@ -59,6 +59,7 @@ export default function ProfessionalAtsBuilder({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isTailoring, setIsTailoring] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showDownloadChecklist, setShowDownloadChecklist] = useState(false);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
   const [lastSavedHiddenSections, setLastSavedHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
 
@@ -136,6 +137,46 @@ export default function ProfessionalAtsBuilder({
 
     return claims;
   }, [snapshot, baselineNumericTokens]);
+
+  const qualityChecklist = useMemo(() => {
+    const critical: string[] = [];
+    const advisory: string[] = [];
+
+    const hasName = snapshot.header.full_name.trim().length > 0;
+    const hasEmailOrPhone = snapshot.header.email.trim().length > 0 || snapshot.header.phone.trim().length > 0;
+    const hasSummary = snapshot.summary.trim().length > 0;
+    const visibleExperience = snapshot.experience.filter((entry) => entry.visible);
+    const visibleSkills = snapshot.skills.filter((entry) => entry.visible);
+    const visibleProjects = snapshot.projects.filter((entry) => entry.visible);
+    const visibleCerts = snapshot.certifications.filter((entry) => entry.visible);
+    const visibleLanguages = snapshot.languages.filter((entry) => entry.visible);
+    const hasEducation = snapshot.education.some((entry) => entry.visible);
+    const isEntryLevel = visibleExperience.length === 0 && hasEducation;
+
+    if (!hasName) critical.push('Missing full name in CV header.');
+    if (!hasEmailOrPhone) critical.push('Add at least one contact method (email or phone).');
+    if (!hasSummary) critical.push('Professional Summary is empty.');
+
+    if (visibleExperience.length === 0) {
+      if (isEntryLevel) advisory.push('No Work Experience entries (allowed for entry-level profile).');
+      else critical.push('Work Experience is empty for a non-entry-level profile.');
+    }
+
+    if (suspiciousClaims.length > 0) {
+      critical.push(`Potential fabricated claims detected (${suspiciousClaims.length}).`);
+    }
+
+    if (snapshot.experience.length > 6) advisory.push('Experience list is long; consider hiding older roles.');
+    if (visibleSkills.length === 0) advisory.push('No visible skills; ATS matching may degrade.');
+    if (!snapshot.header.linkedin_url && !snapshot.header.portfolio_url && !snapshot.header.github_url) {
+      advisory.push('No professional links (LinkedIn/portfolio/GitHub).');
+    }
+    if (visibleProjects.length === 0) advisory.push('No visible Projects section entries.');
+    if (visibleCerts.length === 0) advisory.push('No visible Certifications section entries.');
+    if (visibleLanguages.length === 0) advisory.push('No visible Languages section entries.');
+
+    return { critical, advisory };
+  }, [snapshot, suspiciousClaims]);
 
   const updateHeader = (key: keyof ProfessionalAtsSnapshot['header'], value: string) => {
     setSnapshot((prev) => ({
@@ -310,11 +351,17 @@ export default function ProfessionalAtsBuilder({
   };
 
   const handleDownload = async () => {
-    if (hasUnsavedChanges) {
-      const shouldContinue = window.confirm(
-        'You have unsaved changes. Download current editor state anyway?',
-      );
+    if (qualityChecklist.critical.length > 0 || qualityChecklist.advisory.length > 0 || hasUnsavedChanges) {
+      setShowDownloadChecklist(true);
+      return;
+    }
 
+    await performDownload();
+  };
+
+  const performDownload = async () => {
+    if (hasUnsavedChanges) {
+      const shouldContinue = window.confirm('You have unsaved changes. Download current editor state anyway?');
       if (!shouldContinue) return;
     }
 
@@ -715,6 +762,54 @@ export default function ProfessionalAtsBuilder({
         )}
       </aside>
       <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} hiddenSections={hiddenSections} />
+
+      {showDownloadChecklist && (
+        <div className="cv-checklist-modal" role="dialog" aria-modal="true" aria-label="ATS quality checklist">
+          <div className="cv-checklist-modal__backdrop" onClick={() => setShowDownloadChecklist(false)} />
+          <div className="cv-checklist-modal__content">
+            <h4>Pre-download ATS quality checklist</h4>
+            {hasUnsavedChanges && <p className="cv-checklist-warning">You have unsaved changes.</p>}
+
+            <div className="cv-checklist-group">
+              <strong>Critical</strong>
+              {qualityChecklist.critical.length === 0 ? (
+                <p>None.</p>
+              ) : (
+                <ul>
+                  {qualityChecklist.critical.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              )}
+            </div>
+
+            <div className="cv-checklist-group">
+              <strong>Advisory</strong>
+              {qualityChecklist.advisory.length === 0 ? (
+                <p>None.</p>
+              ) : (
+                <ul>
+                  {qualityChecklist.advisory.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              )}
+            </div>
+
+            <div className="cv-checklist-actions">
+              <button type="button" className="cv-secondary-action" onClick={() => setShowDownloadChecklist(false)}>
+                Fix now
+              </button>
+              <button
+                type="button"
+                className="cv-download-action"
+                onClick={async () => {
+                  setShowDownloadChecklist(false);
+                  await performDownload();
+                }}
+              >
+                Download anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
