@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Download, Edit3, EyeOff, Loader2, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Download, Edit3, EyeOff, Loader2, Save, Sparkles } from 'lucide-react';
 import type {
   CvBullet,
   CvCertificationEntry,
@@ -50,6 +50,7 @@ export default function ProfessionalAtsBuilder({
   const [versionId, setVersionId] = useState<string | null>(initialVersionId);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isTailoring, setIsTailoring] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
   const [lastSavedHiddenSections, setLastSavedHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
@@ -280,6 +281,137 @@ export default function ProfessionalAtsBuilder({
     }
   };
 
+  const toLines = (value: string): string[] => value
+    .split('\n')
+    .map((line) => line.replace(/^[-•]\s*/, '').trim())
+    .filter(Boolean);
+
+  const scoreText = (value: string, terms: string[]): number => {
+    const haystack = value.toLowerCase();
+    return terms.reduce((score, term) => {
+      const token = term.toLowerCase().trim();
+      if (!token) return score;
+      return haystack.includes(token) ? score + 1 : score;
+    }, 0);
+  };
+
+  const handleTailorWithAI = async () => {
+    if (!applicationId) return;
+
+    setIsTailoring(true);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch('/api/generate/cv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ applicationId }),
+      });
+
+      const result = await response.json();
+      if (!result.success || !result.tailoredData) {
+        throw new Error(result.error || 'Failed to tailor CV content');
+      }
+
+      const tailoredSkills: string[] = Array.isArray(result.tailoredData.skills)
+        ? result.tailoredData.skills.map((value: string) => value.trim()).filter(Boolean)
+        : [];
+      const requiredSkills: string[] = Array.isArray(result.application?.job_data?.requiredSkills)
+        ? result.application.job_data.requiredSkills
+        : [];
+      const relevanceTerms = [...tailoredSkills, ...requiredSkills].filter(Boolean);
+
+      setSnapshot((prev) => {
+        const tailoredById = new Map<string, any>(
+          (Array.isArray(result.tailoredData.experiences) ? result.tailoredData.experiences : [])
+            .map((item: any) => [String(item.id), item]),
+        );
+
+        const nextExperience = prev.experience.map((entry, index) => {
+          const tailored = tailoredById.get(entry.id);
+          if (!tailored) return entry;
+
+          const nextBullets = toLines(String(tailored.description || ''))
+            .slice(0, 5)
+            .map((line, bulletIndex) => ({
+              id: `${entry.id}-tailored-${bulletIndex + 1}`,
+              text: line,
+              visible: true,
+              sort_order: bulletIndex,
+            }));
+
+          return {
+            ...entry,
+            title: String(tailored.title || entry.title),
+            company: String(tailored.company || entry.company),
+            bullets: nextBullets.length > 0 ? nextBullets : entry.bullets,
+            sort_order: index,
+          };
+        });
+
+        const skillPriority = new Map<string, number>(
+          tailoredSkills.map((skill, index) => [skill.toLowerCase(), index]),
+        );
+
+        const nextSkills = [...prev.skills]
+          .sort((left, right) => {
+            const leftPriority = skillPriority.get(left.name.toLowerCase()) ?? Number.POSITIVE_INFINITY;
+            const rightPriority = skillPriority.get(right.name.toLowerCase()) ?? Number.POSITIVE_INFINITY;
+
+            if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+            return left.sort_order - right.sort_order;
+          })
+          .map((entry, index) => ({ ...entry, sort_order: index }));
+
+        const nextProjects = [...prev.projects]
+          .sort((left, right) => {
+            const leftText = `${left.name} ${left.description} ${left.tech_stack.join(' ')} ${left.bullets.map((b) => b.text).join(' ')}`;
+            const rightText = `${right.name} ${right.description} ${right.tech_stack.join(' ')} ${right.bullets.map((b) => b.text).join(' ')}`;
+            return scoreText(rightText, relevanceTerms) - scoreText(leftText, relevanceTerms);
+          })
+          .map((entry, index) => ({ ...entry, sort_order: index }));
+
+        const nextCertifications = [...prev.certifications]
+          .sort((left, right) => {
+            const leftText = `${left.name} ${left.issuer}`;
+            const rightText = `${right.name} ${right.issuer}`;
+            return scoreText(rightText, relevanceTerms) - scoreText(leftText, relevanceTerms);
+          })
+          .map((entry, index) => ({ ...entry, sort_order: index }));
+
+        const nextLanguages = [...prev.languages]
+          .sort((left, right) => {
+            const leftScore = scoreText(`${left.name} ${left.proficiency}`, relevanceTerms);
+            const rightScore = scoreText(`${right.name} ${right.proficiency}`, relevanceTerms);
+            return rightScore - leftScore;
+          })
+          .map((entry, index) => ({ ...entry, sort_order: index }));
+
+        return {
+          ...prev,
+          summary: String(result.tailoredData.summary || prev.summary),
+          header: {
+            ...prev.header,
+            headline: prev.header.headline || String(result.application?.job_data?.title || ''),
+          },
+          experience: nextExperience,
+          skills: nextSkills,
+          projects: nextProjects,
+          certifications: nextCertifications,
+          languages: nextLanguages,
+        };
+      });
+
+      setSaveMessage('Applied AI tailoring to summary, experience, and relevance ordering.');
+    } catch (error: any) {
+      setSaveMessage(error?.message || 'Failed to tailor CV content.');
+    } finally {
+      setIsTailoring(false);
+    }
+  };
+
   return (
     <div className="cv-review-desk">
       <aside className="cv-review-controls">
@@ -441,6 +573,12 @@ export default function ProfessionalAtsBuilder({
           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           Save
         </button>
+        {applicationId && (
+          <button type="button" className="cv-secondary-action" onClick={handleTailorWithAI} disabled={isTailoring}>
+            {isTailoring ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            Tailor with AI
+          </button>
+        )}
         <button type="button" className="cv-download-action" onClick={handleDownload} disabled={isDownloading}>
           {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
           Download PDF
