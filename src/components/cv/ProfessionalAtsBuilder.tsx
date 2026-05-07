@@ -24,6 +24,13 @@ interface ProfessionalAtsBuilderProps {
   initialHiddenSections?: CvSectionId[];
 }
 
+interface SuspiciousClaim {
+  section: 'summary' | 'experience' | 'projects';
+  entryId?: string;
+  bulletId?: string;
+  text: string;
+}
+
 const cloneSnapshot = (snapshot: ProfessionalAtsSnapshot): ProfessionalAtsSnapshot => JSON.parse(JSON.stringify(snapshot));
 
 function SectionPanel({ title, children }: { title: string; children: React.ReactNode }) {
@@ -55,6 +62,26 @@ export default function ProfessionalAtsBuilder({
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
   const [lastSavedHiddenSections, setLastSavedHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
 
+  const baselineNumericTokens = useMemo(() => {
+    const collectText = (value: string) => value.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
+    const tokens = new Set<string>();
+
+    const addText = (value: string) => {
+      collectText(value).forEach((token) => tokens.add(token));
+    };
+
+    addText(initialSnapshot.summary || '');
+    initialSnapshot.experience.forEach((entry) => {
+      entry.bullets.forEach((bullet) => addText(bullet.text));
+    });
+    initialSnapshot.projects.forEach((entry) => {
+      entry.bullets.forEach((bullet) => addText(bullet.text));
+      addText(entry.description || '');
+    });
+
+    return tokens;
+  }, [initialSnapshot]);
+
   const visibleSectionCount = useMemo(() => {
     const counts = [
       snapshot.summary ? 1 : 0,
@@ -73,6 +100,42 @@ export default function ProfessionalAtsBuilder({
     return JSON.stringify(snapshot) !== JSON.stringify(lastSavedSnapshot)
       || JSON.stringify(hiddenSections) !== JSON.stringify(lastSavedHiddenSections);
   }, [snapshot, lastSavedSnapshot, hiddenSections, lastSavedHiddenSections]);
+
+  const suspiciousClaims = useMemo<SuspiciousClaim[]>(() => {
+    const claims: SuspiciousClaim[] = [];
+    const hasNumericClaim = (value: string) => /\b\d+(?:\.\d+)?%?\b/.test(value);
+    const hasStrongClaimWord = (value: string) => /(increased|reduced|improved|boosted|grew|cut|saved|accelerated)/i.test(value);
+    const extractTokens = (value: string) => value.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
+
+    const isSuspicious = (value: string): boolean => {
+      if (!hasNumericClaim(value)) return false;
+      if (!hasStrongClaimWord(value)) return false;
+      const tokens = extractTokens(value);
+      return tokens.some((token) => !baselineNumericTokens.has(token));
+    };
+
+    if (isSuspicious(snapshot.summary)) {
+      claims.push({ section: 'summary', text: snapshot.summary });
+    }
+
+    snapshot.experience.forEach((entry) => {
+      entry.bullets.forEach((bullet) => {
+        if (isSuspicious(bullet.text)) {
+          claims.push({ section: 'experience', entryId: entry.id, bulletId: bullet.id, text: bullet.text });
+        }
+      });
+    });
+
+    snapshot.projects.forEach((entry) => {
+      entry.bullets.forEach((bullet) => {
+        if (isSuspicious(bullet.text)) {
+          claims.push({ section: 'projects', entryId: entry.id, bulletId: bullet.id, text: bullet.text });
+        }
+      });
+    });
+
+    return claims;
+  }, [snapshot, baselineNumericTokens]);
 
   const updateHeader = (key: keyof ProfessionalAtsSnapshot['header'], value: string) => {
     setSnapshot((prev) => ({
@@ -412,6 +475,55 @@ export default function ProfessionalAtsBuilder({
     }
   };
 
+  const sanitizeClaimText = (value: string): string => {
+    return value
+      .replace(/\b\d+(?:\.\d+)?%\b/g, 'significantly')
+      .replace(/\b\d+(?:\.\d+)?\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s,/, ',')
+      .trim();
+  };
+
+  const handleRewriteSafely = () => {
+    setSnapshot((prev) => {
+      const next = cloneSnapshot(prev);
+
+      if (suspiciousClaims.some((claim) => claim.section === 'summary')) {
+        next.summary = sanitizeClaimText(next.summary);
+      }
+
+      next.experience = next.experience.map((entry) => ({
+        ...entry,
+        bullets: entry.bullets.map((bullet) => {
+          const isFlagged = suspiciousClaims.some(
+            (claim) => claim.section === 'experience' && claim.entryId === entry.id && claim.bulletId === bullet.id,
+          );
+
+          return isFlagged
+            ? { ...bullet, text: sanitizeClaimText(bullet.text) }
+            : bullet;
+        }),
+      }));
+
+      next.projects = next.projects.map((entry) => ({
+        ...entry,
+        bullets: entry.bullets.map((bullet) => {
+          const isFlagged = suspiciousClaims.some(
+            (claim) => claim.section === 'projects' && claim.entryId === entry.id && claim.bulletId === bullet.id,
+          );
+
+          return isFlagged
+            ? { ...bullet, text: sanitizeClaimText(bullet.text) }
+            : bullet;
+        }),
+      }));
+
+      return next;
+    });
+
+    setSaveMessage('Rewrote flagged lines in safer non-numeric language.');
+  };
+
   return (
     <div className="cv-review-desk">
       <aside className="cv-review-controls">
@@ -568,6 +680,9 @@ export default function ProfessionalAtsBuilder({
         <div className="cv-success-note">
           <span>Editing {visibleSectionCount} populated sections in Professional ATS mode.</span>
         </div>
+        <div className="cv-success-note">
+          <span>AI rewriting uses your profile facts only. Do not include fabricated metrics or claims.</span>
+        </div>
 
         <button type="button" className="cv-secondary-action" onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -588,6 +703,15 @@ export default function ProfessionalAtsBuilder({
         )}
         {hasUnsavedChanges && (
           <p className="cv-save-message">You have unsaved changes.</p>
+        )}
+        {suspiciousClaims.length > 0 && (
+          <div className="cv-warning-note">
+            <strong>Potential fabricated claims detected ({suspiciousClaims.length}).</strong>
+            <p>These lines include numeric impact claims not present in your baseline profile data.</p>
+            <button type="button" className="cv-secondary-action" onClick={handleRewriteSafely}>
+              Rewrite safely
+            </button>
+          </div>
         )}
       </aside>
       <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} hiddenSections={hiddenSections} />
