@@ -3426,6 +3426,13 @@ h1, h2, h3, h4 {
   background: rgba(15, 23, 42, 0.55);
 }
 
+.cv-save-message {
+  margin: 0.7rem 1rem 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .cv-template-option {
   justify-content: flex-start;
   width: 100%;

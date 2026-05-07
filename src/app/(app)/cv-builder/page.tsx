@@ -3,6 +3,7 @@ import { ProtectedPage, ProtectedPageHeader } from '@/components/layout/Protecte
 import { getFullProfile } from '@/lib/profile/actions';
 import ProfessionalAtsBuilder from '@/components/cv/ProfessionalAtsBuilder';
 import { buildProfessionalAtsSnapshot } from '@/lib/cv/professionalAts';
+import { getLatestCvVersion } from '@/lib/cv/actions';
 
 export default async function GeneralCvBuilderPage() {
   const profile = await getFullProfile();
@@ -21,6 +22,11 @@ export default async function GeneralCvBuilderPage() {
   }
 
   const snapshot = buildProfessionalAtsSnapshot(profile);
+  const latestVersion = await getLatestCvVersion(null);
+  const initialSnapshot = latestVersion?.content ?? snapshot;
+  const initialHiddenSections = Array.isArray(latestVersion?.section_visibility?.hidden_sections)
+    ? latestVersion.section_visibility.hidden_sections
+    : [];
 
   return (
     <ProtectedPage maxWidth="wide">
@@ -30,7 +36,12 @@ export default async function GeneralCvBuilderPage() {
         description="Edit a professional ATS-friendly CV generated from your Master Profile."
         icon={FileText}
       />
-      <ProfessionalAtsBuilder initialSnapshot={snapshot} contextLabel="General CV" />
+      <ProfessionalAtsBuilder
+        initialSnapshot={initialSnapshot}
+        contextLabel="General CV"
+        initialVersionId={latestVersion?.id ?? null}
+        initialHiddenSections={initialHiddenSections}
+      />
     </ProtectedPage>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Edit3, EyeOff } from 'lucide-react';
+import { ArrowDown, ArrowUp, Edit3, EyeOff, Loader2, Save } from 'lucide-react';
 import type {
   CvBullet,
   CvCertificationEntry,
@@ -18,6 +18,9 @@ import ProfessionalAtsPreview from './ProfessionalAtsPreview';
 interface ProfessionalAtsBuilderProps {
   initialSnapshot: ProfessionalAtsSnapshot;
   contextLabel: string;
+  applicationId?: string | null;
+  initialVersionId?: string | null;
+  initialHiddenSections?: CvSectionId[];
 }
 
 const cloneSnapshot = (snapshot: ProfessionalAtsSnapshot): ProfessionalAtsSnapshot => JSON.parse(JSON.stringify(snapshot));
@@ -34,9 +37,18 @@ function SectionPanel({ title, children }: { title: string; children: React.Reac
   );
 }
 
-export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }: ProfessionalAtsBuilderProps) {
+export default function ProfessionalAtsBuilder({
+  initialSnapshot,
+  contextLabel,
+  applicationId = null,
+  initialVersionId = null,
+  initialHiddenSections = [],
+}: ProfessionalAtsBuilderProps) {
   const [snapshot, setSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
-  const [hiddenSections, setHiddenSections] = useState<CvSectionId[]>([]);
+  const [hiddenSections, setHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
+  const [versionId, setVersionId] = useState<string | null>(initialVersionId);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const visibleSectionCount = useMemo(() => {
     const counts = [
@@ -187,6 +199,39 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
       languages[index] = { ...languages[index], ...patch };
       return { ...prev, languages };
     });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch('/api/cv-versions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: versionId,
+          applicationId,
+          snapshot,
+          hiddenSections,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save CV');
+      }
+
+      setVersionId(result.version?.id || versionId);
+      setSaveMessage('Saved CV version snapshot.');
+    } catch (error: any) {
+      setSaveMessage(error?.message || 'Failed to save CV version.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -345,6 +390,14 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         <div className="cv-success-note">
           <span>Editing {visibleSectionCount} populated sections in Professional ATS mode.</span>
         </div>
+
+        <button type="button" className="cv-secondary-action" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          Save
+        </button>
+        {saveMessage && (
+          <p className="cv-save-message">{saveMessage}</p>
+        )}
       </aside>
       <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} hiddenSections={hiddenSections} />
     </div>
