@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Edit3, EyeOff, Loader2, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Download, Edit3, EyeOff, Loader2, Save } from 'lucide-react';
 import type {
   CvBullet,
   CvCertificationEntry,
@@ -14,6 +14,7 @@ import type {
   ProfessionalAtsSnapshot,
 } from '@/lib/cv/professionalAts';
 import ProfessionalAtsPreview from './ProfessionalAtsPreview';
+import { ProfessionalAtsTemplate } from './ProfessionalAtsTemplate';
 
 interface ProfessionalAtsBuilderProps {
   initialSnapshot: ProfessionalAtsSnapshot;
@@ -48,7 +49,10 @@ export default function ProfessionalAtsBuilder({
   const [hiddenSections, setHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
   const [versionId, setVersionId] = useState<string | null>(initialVersionId);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
+  const [lastSavedHiddenSections, setLastSavedHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
 
   const visibleSectionCount = useMemo(() => {
     const counts = [
@@ -63,6 +67,11 @@ export default function ProfessionalAtsBuilder({
 
     return counts.reduce((total, value) => total + value, 0);
   }, [snapshot]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(snapshot) !== JSON.stringify(lastSavedSnapshot)
+      || JSON.stringify(hiddenSections) !== JSON.stringify(lastSavedHiddenSections);
+  }, [snapshot, lastSavedSnapshot, hiddenSections, lastSavedHiddenSections]);
 
   const updateHeader = (key: keyof ProfessionalAtsSnapshot['header'], value: string) => {
     setSnapshot((prev) => ({
@@ -226,11 +235,48 @@ export default function ProfessionalAtsBuilder({
       }
 
       setVersionId(result.version?.id || versionId);
+      setLastSavedSnapshot(cloneSnapshot(snapshot));
+      setLastSavedHiddenSections([...hiddenSections]);
       setSaveMessage('Saved CV version snapshot.');
     } catch (error: any) {
       setSaveMessage(error?.message || 'Failed to save CV version.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (hasUnsavedChanges) {
+      const shouldContinue = window.confirm(
+        'You have unsaved changes. Download current editor state anyway?',
+      );
+
+      if (!shouldContinue) return;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const blob = await pdf(
+        <ProfessionalAtsTemplate snapshot={snapshot} hiddenSections={hiddenSections} />,
+      ).toBlob();
+
+      const slug = contextLabel
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'cv';
+      const fileName = `professional-ats-${slug}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -395,8 +441,15 @@ export default function ProfessionalAtsBuilder({
           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           Save
         </button>
+        <button type="button" className="cv-download-action" onClick={handleDownload} disabled={isDownloading}>
+          {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+          Download PDF
+        </button>
         {saveMessage && (
           <p className="cv-save-message">{saveMessage}</p>
+        )}
+        {hasUnsavedChanges && (
+          <p className="cv-save-message">You have unsaved changes.</p>
         )}
       </aside>
       <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} hiddenSections={hiddenSections} />
