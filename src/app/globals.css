@@ -3354,6 +3354,30 @@ h1, h2, h3, h4 {
   padding: 1rem;
 }
 
+.cv-field {
+  width: calc(100% - 2rem);
+  margin: 0 1rem 0.65rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(248, 250, 252, 0.88);
+  color: var(--foreground);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cv-field:focus {
+  outline: none;
+  border-color: rgba(15, 118, 110, 0.45);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+}
+
+.dark .cv-field {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
 .cv-template-option {
   justify-content: flex-start;
   width: 100%;
