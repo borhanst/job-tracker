@@ -8,6 +8,7 @@ import {
   LayoutDashboard, 
   Briefcase, 
   PlusCircle, 
+  FileText,
   UserCircle, 
   Settings, 
   ChevronLeft, 
@@ -22,6 +23,7 @@ const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Applications', href: '/applications', icon: Briefcase },
   { name: 'Add Job', href: '/jobs/add', icon: PlusCircle },
+  { name: 'CV Builder', href: '/cv-builder', icon: FileText },
   { name: 'Profile', href: '/profile', icon: UserCircle },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

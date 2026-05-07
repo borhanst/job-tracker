@@ -7,6 +7,10 @@
 
 Integrate AI to generate tailored CV content and build the UI for previewing and downloading the PDF.
 
+## Delivery note
+
+This is a future feature. Keep implementation out of the current release scope until dependencies are complete and the backlog item is explicitly scheduled.
+
 ## Acceptance criteria
 
 - [ ] `lib/ai/generate.ts` implements `generateCVContent(profile, jobData, template, model)`.
@@ -15,6 +19,9 @@ Integrate AI to generate tailored CV content and build the UI for previewing and
     - Template selection cards (Modern, Classic, Minimal).
     - "Generate" button with loading state.
     - Side-by-side view: Job Requirements vs PDF Preview (using `<PDFViewer>`).
+- [ ] Existing Application Detail "Generated CVs" tab links to `/applications/[id]/cv-builder` as the primary editing entry point.
+- [ ] Users can edit generated section content inline before download.
+- [ ] Users can reorder and hide sections (for example: Summary, Experience, Education, Skills) without mutating Master Profile source data.
 - [ ] "Download PDF" button generates and saves the PDF blob.
 - [ ] Generated content is saved to the `generated_documents` table to avoid redundant AI costs.
 
