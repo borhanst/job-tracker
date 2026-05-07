@@ -46,6 +46,42 @@ function getProviderModels(settings: any) {
   }, {});
 }
 
+function resolveOllamaRootBaseUrl() {
+  const rawBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').trim();
+  const rootBaseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+  return rootBaseUrl.endsWith('/v1') ? rootBaseUrl.slice(0, -3) : rootBaseUrl;
+}
+
+async function getInstalledOllamaModels() {
+  const endpoint = `${resolveOllamaRootBaseUrl()}/api/tags`;
+  const response = await fetch(endpoint, { method: 'GET', cache: 'no-store' });
+
+  if (!response.ok) {
+    throw new Error('Could not load installed Ollama models. Start Ollama and try again.');
+  }
+
+  const payload = await response.json();
+  if (!Array.isArray(payload?.models)) {
+    return [] as string[];
+  }
+
+  return payload.models
+    .map((entry: { name?: string }) => entry?.name)
+    .filter((name: string | undefined): name is string => Boolean(name));
+}
+
+function mapSettingsPersistenceError(error: any): Error {
+  if (error?.code === '22P02' && String(error?.message || '').includes('enum ai_provider')) {
+    return new Error(
+      'Your database schema is outdated and does not include the Ollama provider yet. Run the latest Supabase migrations, then try again.'
+    );
+  }
+
+  return error instanceof Error
+    ? error
+    : new Error(error?.message || 'Failed to save settings.');
+}
+
 export async function getUserSettings() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -139,6 +175,13 @@ export async function updateUserSettings(provider: string, model: string, newKey
     throw new Error(validation.formErrors[0] ?? Object.values(validation.fieldErrors)[0]?.[0] ?? 'Check the AI provider settings.');
   }
 
+  if (validation.data.provider === 'ollama') {
+    const installedModels = await getInstalledOllamaModels();
+    if (!installedModels.includes(validation.data.model)) {
+      throw new Error('Select a model from available Ollama models.');
+    }
+  }
+
   const providerModels = {
     ...(existingSettings?.provider_models || {}),
     [validation.data.provider]: validation.data.model,
@@ -163,6 +206,6 @@ export async function updateUserSettings(provider: string, model: string, newKey
     .from('user_settings')
     .upsert(updatePayload, { onConflict: 'user_id' });
 
-  if (error) throw error;
+  if (error) throw mapSettingsPersistenceError(error);
   revalidatePath('/settings');
 }

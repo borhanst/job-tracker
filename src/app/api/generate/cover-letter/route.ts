@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getModelInstance } from '@/lib/ai/provider';
 import { generateCoverLetter } from '@/lib/ai/generate';
+import { getAiErrorMessage } from '@/lib/ai/errors';
 import { getApplicationById } from '@/lib/jobs/actions';
 import { getFullProfile } from '@/lib/profile/actions';
 import { generationRequestSchema, validateWithSchema } from '@/lib/validation';
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Cover Letter Generation error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: getAiErrorMessage(error) },
       { status: 500 }
     );
   }

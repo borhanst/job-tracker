@@ -74,4 +74,21 @@ describe('settingsSchema', () => {
       formErrors: [],
     });
   });
+
+  it('requires selecting an Ollama model value', () => {
+    const result = validateWithSchema(settingsSchema, {
+      provider: 'ollama',
+      model: '',
+      newKey: '',
+      hasExistingKey: false,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      fieldErrors: {
+        model: ['Choose a model'],
+      },
+      formErrors: [],
+    });
+  });
 });

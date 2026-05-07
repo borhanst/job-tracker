@@ -5,6 +5,16 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI as createGroq } from '@ai-sdk/openai'; // Groq uses OpenAI SDK structure
 
+function resolveOllamaBaseUrl() {
+  const rawBaseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').trim();
+  const rootBaseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+
+  return {
+    rootBaseUrl,
+    openAIBaseUrl: rootBaseUrl.endsWith('/v1') ? rootBaseUrl : `${rootBaseUrl}/v1`,
+  };
+}
+
 export async function getModelInstance(userId: string) {
   const supabase = await createClient();
 
@@ -32,6 +42,7 @@ export async function getModelInstance(userId: string) {
   if (provider === 'openai') apiKey = decryptKey(settings.openai_key_enc);
   if (provider === 'anthropic') apiKey = decryptKey(settings.anthropic_key_enc);
   if (provider === 'groq') apiKey = decryptKey(settings.groq_key_enc);
+  if (provider === 'ollama') apiKey = 'ollama';
 
   // Fallback to environment variables if user hasn't set a key
   if (!apiKey) {
@@ -44,6 +55,7 @@ export async function getModelInstance(userId: string) {
     if (provider === 'openai') apiKey = process.env.OPENAI_API_KEY || '';
     if (provider === 'anthropic') apiKey = process.env.ANTHROPIC_API_KEY || '';
     if (provider === 'groq') apiKey = process.env.GROQ_API_KEY || '';
+    if (provider === 'ollama') apiKey = 'ollama';
   }
 
   if (!apiKey) {
@@ -63,6 +75,9 @@ export async function getModelInstance(userId: string) {
     case 'groq':
       const groq = createGroq({ apiKey, baseURL: 'https://api.groq.com/openai/v1' });
       return groq(modelName);
+    case 'ollama':
+      const ollama = createOpenAI({ apiKey, baseURL: resolveOllamaBaseUrl().openAIBaseUrl });
+      return ollama(modelName);
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }

@@ -3340,6 +3340,34 @@ h1, h2, h3, h4 {
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
 }
 
+.cv-control-panel__header--collapsible {
+  padding: 0;
+}
+
+.cv-collapse-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.cv-collapse-toggle span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cv-collapse-toggle h4 {
+  margin: 0;
+  flex: 1;
+}
+
 .cv-control-panel__header h4,
 .cv-preview-panel__topbar h4 {
   margin-top: 0.25rem;
@@ -3383,6 +3411,67 @@ h1, h2, h3, h4 {
   align-items: flex-start;
   gap: 0.5rem;
   margin: 0 1rem 0.65rem;
+}
+
+.cv-entry-row--draggable {
+  cursor: grab;
+  border: 1px dashed transparent;
+  border-radius: 0.65rem;
+  padding: 0.35rem 0.4rem;
+  margin: 0 0.65rem 0.55rem;
+}
+
+.cv-entry-row--draggable:active {
+  cursor: grabbing;
+}
+
+.cv-entry-row--draggable.is-dragging {
+  opacity: 0.55;
+  border-color: rgba(15, 118, 110, 0.35);
+  background: rgba(240, 253, 250, 0.7);
+}
+
+.cv-entry-row--draggable.is-drop-target {
+  border-color: rgba(15, 118, 110, 0.45);
+  background: rgba(240, 253, 250, 0.92);
+}
+
+.cv-drag-handle {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-top: 0.15rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+
+.cv-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dark .cv-drag-handle {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.cv-section-drop-end {
+  margin: 0.2rem 0.8rem 0.8rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 0.55rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cv-section-drop-end.is-drop-target {
+  border-color: rgba(15, 118, 110, 0.45);
+  background: rgba(240, 253, 250, 0.85);
+  color: #0f766e;
 }
 
 .cv-entry-label {
@@ -3515,6 +3604,7 @@ h1, h2, h3, h4 {
   margin: 0;
   min-width: 9.5rem;
 }
+
 
 .cv-template-option {
   justify-content: flex-start;

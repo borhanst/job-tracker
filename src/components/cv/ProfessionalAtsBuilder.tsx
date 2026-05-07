@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Download, Edit3, EyeOff, Loader2, Save, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, Edit3, EyeOff, GripVertical, Loader2, Save, Sparkles } from 'lucide-react';
 import type {
   CvBullet,
   CvCertificationEntry,
@@ -34,13 +34,26 @@ interface SuspiciousClaim {
 const cloneSnapshot = (snapshot: ProfessionalAtsSnapshot): ProfessionalAtsSnapshot => JSON.parse(JSON.stringify(snapshot));
 
 function SectionPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(() =>
+    title === 'Sections' || title === 'Header' || title === 'Skills',
+  );
+
   return (
     <div className="cv-control-panel">
-      <div className="cv-control-panel__header">
-        <span><Edit3 size={15} /> Edit</span>
-        <h4>{title}</h4>
+      <div className="cv-control-panel__header cv-control-panel__header--collapsible">
+        <button
+          type="button"
+          className="cv-collapse-toggle"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${title}`}
+        >
+          <span><Edit3 size={15} /> Edit</span>
+          <h4>{title}</h4>
+          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
       </div>
-      {children}
+      {isOpen && children}
     </div>
   );
 }
@@ -62,6 +75,8 @@ export default function ProfessionalAtsBuilder({
   const [showDownloadChecklist, setShowDownloadChecklist] = useState(false);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
   const [lastSavedHiddenSections, setLastSavedHiddenSections] = useState<CvSectionId[]>(initialHiddenSections);
+  const [draggingSection, setDraggingSection] = useState<CvSectionId | null>(null);
+  const [dropSectionIndex, setDropSectionIndex] = useState<number | null>(null);
 
   const baselineNumericTokens = useMemo(() => {
     const collectText = (value: string) => value.match(/\b\d+(?:\.\d+)?%?\b/g) ?? [];
@@ -206,21 +221,71 @@ export default function ProfessionalAtsBuilder({
     });
   };
 
+  const moveSectionToIndex = (sectionId: CvSectionId, targetIndex: number) => {
+    setSnapshot((prev) => {
+      const currentIndex = prev.section_order.indexOf(sectionId);
+      if (currentIndex === -1 || targetIndex < 0 || targetIndex >= prev.section_order.length) {
+        return prev;
+      }
+
+      const next = [...prev.section_order];
+      const [item] = next.splice(currentIndex, 1);
+      const boundedTarget = Math.max(0, Math.min(targetIndex, next.length));
+      next.splice(boundedTarget, 0, item);
+
+      return { ...prev, section_order: next };
+    });
+  };
+
+  const getDraggedSectionId = (event: React.DragEvent): CvSectionId | null => {
+    const fromCustom = event.dataTransfer.getData('application/x-cv-section');
+    const fromPlain = event.dataTransfer.getData('text/plain');
+    const value = (fromCustom || fromPlain || '').trim();
+
+    if (!value) return draggingSection;
+
+    const exists = snapshot.section_order.includes(value as CvSectionId);
+    return exists ? (value as CvSectionId) : null;
+  };
+
   const toggleSection = (sectionId: CvSectionId) => {
     setHiddenSections((prev) => (prev.includes(sectionId) ? prev.filter((id) => id !== sectionId) : [...prev, sectionId]));
   };
 
-  const moveEntry = <T extends { sort_order: number }>(
-    section: keyof Pick<ProfessionalAtsSnapshot, 'skills' | 'experience' | 'projects' | 'education' | 'certifications' | 'languages'>,
+  const moveEntry = (
+    section: 'skills' | 'experience' | 'projects' | 'education' | 'certifications' | 'languages',
     index: number,
     direction: -1 | 1,
   ) => {
     setSnapshot((prev) => {
-      const entries = moveItem(prev[section] as T[], index, direction).map((entry, entryIndex) => ({
-        ...entry,
-        sort_order: entryIndex,
-      }));
-      return { ...prev, [section]: entries } as ProfessionalAtsSnapshot;
+      switch (section) {
+        case 'skills': {
+          const skills = moveItem(prev.skills, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, skills };
+        }
+        case 'experience': {
+          const experience = moveItem(prev.experience, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, experience };
+        }
+        case 'projects': {
+          const projects = moveItem(prev.projects, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, projects };
+        }
+        case 'education': {
+          const education = moveItem(prev.education, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, education };
+        }
+        case 'certifications': {
+          const certifications = moveItem(prev.certifications, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, certifications };
+        }
+        case 'languages': {
+          const languages = moveItem(prev.languages, index, direction).map((entry, entryIndex) => ({ ...entry, sort_order: entryIndex }));
+          return { ...prev, languages };
+        }
+        default:
+          return prev;
+      }
     });
   };
 
@@ -417,7 +482,7 @@ export default function ProfessionalAtsBuilder({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ applicationId }),
+        body: JSON.stringify({ applicationId, save: false }),
       });
 
       const result = await response.json();
@@ -432,8 +497,21 @@ export default function ProfessionalAtsBuilder({
         ? result.application.job_data.requiredSkills
         : [];
       const relevanceTerms = [...tailoredSkills, ...requiredSkills].filter(Boolean);
+      const projectOrderIds: string[] = Array.isArray(result.tailoredData.projectOrder)
+        ? result.tailoredData.projectOrder.map((value: string) => String(value))
+        : [];
+      const certificationOrderIds: string[] = Array.isArray(result.tailoredData.certificationOrder)
+        ? result.tailoredData.certificationOrder.map((value: string) => String(value))
+        : [];
+      const languageOrderIds: string[] = Array.isArray(result.tailoredData.languageOrder)
+        ? result.tailoredData.languageOrder.map((value: string) => String(value))
+        : [];
+      const sectionOrderCandidates: CvSectionId[] = Array.isArray(result.tailoredData.sectionOrder)
+        ? result.tailoredData.sectionOrder.map((value: string) => value as CvSectionId)
+        : [];
 
       setSnapshot((prev) => {
+        const prevSectionIds = prev.section_order;
         const tailoredById = new Map<string, any>(
           (Array.isArray(result.tailoredData.experiences) ? result.tailoredData.experiences : [])
             .map((item: any) => [String(item.id), item]),
@@ -475,42 +553,66 @@ export default function ProfessionalAtsBuilder({
           })
           .map((entry, index) => ({ ...entry, sort_order: index }));
 
+        const projectPriority = new Map<string, number>(projectOrderIds.map((id, index) => [id, index]));
         const nextProjects = [...prev.projects]
           .sort((left, right) => {
+            const leftPriority = projectPriority.get(left.id) ?? Number.POSITIVE_INFINITY;
+            const rightPriority = projectPriority.get(right.id) ?? Number.POSITIVE_INFINITY;
+            if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+
             const leftText = `${left.name} ${left.description} ${left.tech_stack.join(' ')} ${left.bullets.map((b) => b.text).join(' ')}`;
             const rightText = `${right.name} ${right.description} ${right.tech_stack.join(' ')} ${right.bullets.map((b) => b.text).join(' ')}`;
             return scoreText(rightText, relevanceTerms) - scoreText(leftText, relevanceTerms);
           })
           .map((entry, index) => ({ ...entry, sort_order: index }));
 
+        const certificationPriority = new Map<string, number>(certificationOrderIds.map((id, index) => [id, index]));
         const nextCertifications = [...prev.certifications]
           .sort((left, right) => {
+            const leftPriority = certificationPriority.get(left.id) ?? Number.POSITIVE_INFINITY;
+            const rightPriority = certificationPriority.get(right.id) ?? Number.POSITIVE_INFINITY;
+            if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+
             const leftText = `${left.name} ${left.issuer}`;
             const rightText = `${right.name} ${right.issuer}`;
             return scoreText(rightText, relevanceTerms) - scoreText(leftText, relevanceTerms);
           })
           .map((entry, index) => ({ ...entry, sort_order: index }));
 
+        const languagePriority = new Map<string, number>(languageOrderIds.map((id, index) => [id, index]));
         const nextLanguages = [...prev.languages]
           .sort((left, right) => {
+            const leftPriority = languagePriority.get(left.id) ?? Number.POSITIVE_INFINITY;
+            const rightPriority = languagePriority.get(right.id) ?? Number.POSITIVE_INFINITY;
+            if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+
             const leftScore = scoreText(`${left.name} ${left.proficiency}`, relevanceTerms);
             const rightScore = scoreText(`${right.name} ${right.proficiency}`, relevanceTerms);
             return rightScore - leftScore;
           })
           .map((entry, index) => ({ ...entry, sort_order: index }));
 
+        const sectionOrder = sectionOrderCandidates.filter((value) => prevSectionIds.includes(value));
+        const nextSectionOrder = sectionOrder.length > 0
+          ? [
+              ...sectionOrder,
+              ...prevSectionIds.filter((id) => !sectionOrder.includes(id)),
+            ]
+          : prevSectionIds;
+
         return {
           ...prev,
           summary: String(result.tailoredData.summary || prev.summary),
           header: {
             ...prev.header,
-            headline: prev.header.headline || String(result.application?.job_data?.title || ''),
+            headline: String(result.tailoredData.headline || prev.header.headline || result.application?.job_data?.title || ''),
           },
           experience: nextExperience,
           skills: nextSkills,
           projects: nextProjects,
           certifications: nextCertifications,
           languages: nextLanguages,
+          section_order: nextSectionOrder,
         };
       });
 
@@ -579,16 +681,96 @@ export default function ProfessionalAtsBuilder({
             const isHidden = hiddenSections.includes(sectionId);
 
             return (
-              <div key={sectionId} className="cv-entry-row">
+              <div
+                key={sectionId}
+                className={`cv-entry-row cv-entry-row--draggable ${draggingSection === sectionId ? 'is-dragging' : ''} ${dropSectionIndex === index ? 'is-drop-target' : ''}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDropSectionIndex(index);
+                }}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDropSectionIndex(index);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const draggedId = getDraggedSectionId(event);
+                  if (!draggedId || draggedId === sectionId) return;
+                  moveSectionToIndex(draggedId, index);
+                  setDraggingSection(null);
+                  setDropSectionIndex(null);
+                }}
+                onDragLeave={() => {
+                  if (dropSectionIndex === index) setDropSectionIndex(null);
+                }}
+              >
+                <button
+                  type="button"
+                  className="cv-drag-handle"
+                  draggable
+                  onDragStart={(event) => {
+                    setDraggingSection(sectionId);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.dropEffect = 'move';
+                    event.dataTransfer.setData('application/x-cv-section', sectionId);
+                    event.dataTransfer.setData('text/plain', sectionId);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingSection(null);
+                    setDropSectionIndex(null);
+                  }}
+                  aria-label={`Drag to reorder ${sectionId}`}
+                  title="Drag to reorder"
+                >
+                  <GripVertical size={14} />
+                </button>
                 <span className="cv-entry-label">{sectionId}</span>
                 <div className="cv-entry-actions">
-                  <button type="button" onClick={() => moveSection(sectionId, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
-                  <button type="button" onClick={() => moveSection(sectionId, 1)} disabled={index === snapshot.section_order.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                  <button
+                    type="button"
+                    onClick={() => moveSection(sectionId, -1)}
+                    disabled={index === 0}
+                    className="cv-mini-btn"
+                    title="Move up"
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSection(sectionId, 1)}
+                    disabled={index === snapshot.section_order.length - 1}
+                    className="cv-mini-btn"
+                    title="Move down"
+                  >
+                    <ArrowDown size={14} />
+                  </button>
                   <button type="button" onClick={() => toggleSection(sectionId)} className={`cv-mini-btn ${isHidden ? 'is-hidden' : ''}`} title="Toggle section visibility"><EyeOff size={14} /></button>
                 </div>
               </div>
             );
           })}
+
+          <div
+            className={`cv-section-drop-end ${dropSectionIndex === snapshot.section_order.length ? 'is-drop-target' : ''}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropSectionIndex(snapshot.section_order.length);
+            }}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDropSectionIndex(snapshot.section_order.length);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const draggedId = getDraggedSectionId(event);
+              if (!draggedId) return;
+              moveSectionToIndex(draggedId, snapshot.section_order.length - 1);
+              setDraggingSection(null);
+              setDropSectionIndex(null);
+            }}
+          >
+            Drop here to move section to end
+          </div>
         </SectionPanel>
 
         <SectionPanel title="Header">

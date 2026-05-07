@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getModelInstance } from '@/lib/ai/provider';
 import { extractJobData, computeMatchScore } from '@/lib/ai/extract';
+import { getAiErrorMessage } from '@/lib/ai/errors';
 import { getFullProfile } from '@/lib/profile/actions';
 import { extractRequestSchema, validateWithSchema } from '@/lib/validation';
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Extraction error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: getAiErrorMessage(error) },
       { status: 500 }
     );
   }

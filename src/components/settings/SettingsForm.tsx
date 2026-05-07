@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -12,6 +12,7 @@ import {
   RadioTower,
   ShieldCheck,
   Sparkles,
+  TriangleAlert,
   Zap,
 } from 'lucide-react';
 import { updateUserSettings } from '@/lib/settings/actions';
@@ -26,6 +27,7 @@ const PROVIDER_OPTIONS = [
   { value: 'openai', label: 'OpenAI', hint: 'ChatGPT', icon: Bot },
   { value: 'anthropic', label: 'Anthropic', hint: 'Claude', icon: ShieldCheck },
   { value: 'groq', label: 'Groq', hint: 'Fastest', icon: Zap },
+  { value: 'ollama', label: 'Ollama', hint: 'Local', icon: Bot },
 ];
 
 const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -45,6 +47,7 @@ const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: 'openai/gpt-oss-120b', label: 'OpenAI GPT-OSS 120B (Higher quality)' },
     { value: 'openai/gpt-oss-20b', label: 'OpenAI GPT-OSS 20B (Fast)' },
   ],
+  ollama: [],
 };
 
 const KEY_FLAGS: Record<string, string> = {
@@ -52,6 +55,7 @@ const KEY_FLAGS: Record<string, string> = {
   openai: 'hasOpenaiKey',
   anthropic: 'hasAnthropicKey',
   groq: 'hasGroqKey',
+  ollama: 'hasOllamaKey',
 };
 
 export default function SettingsForm({ initialSettings }: SettingsFormProps) {
@@ -61,7 +65,8 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [providerModels, setProviderModels] = useState<Record<string, string>>(() =>
     PROVIDER_OPTIONS.reduce<Record<string, string>>((models, option) => {
       models[option.value] =
-        initialProviderModels[option.value] || MODEL_OPTIONS[option.value][0].value;
+        initialProviderModels[option.value] ||
+        (option.value === 'ollama' ? '' : MODEL_OPTIONS[option.value][0].value);
       return models;
     }, {})
   );
@@ -75,13 +80,43 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [ollamaFetchWarning, setOllamaFetchWarning] = useState('');
 
   const selectedProvider = PROVIDER_OPTIONS.find((option) => option.value === provider);
-  const model = providerModels[provider] || MODEL_OPTIONS[provider][0].value;
+  const model =
+    providerModels[provider] ||
+    (provider === 'ollama' ? '' : MODEL_OPTIONS[provider][0].value);
   const selectedModelLabel =
     MODEL_OPTIONS[provider]?.find((option) => option.value === model)?.label || model;
-  const hasKeySet = !!savedKeys[provider];
-  const configuredCount = Object.values(savedKeys).filter(Boolean).length;
+  const hasKeySet = provider === 'ollama' ? true : !!savedKeys[provider];
+  const configuredCount =
+    Object.values(savedKeys).filter(Boolean).length +
+    (activeProvider === 'ollama' || Boolean(providerModels.ollama) ? 1 : 0);
+
+  useEffect(() => {
+    if (provider !== 'ollama') return;
+
+    const loadModels = async () => {
+      try {
+        const response = await fetch('/api/ollama/models', { method: 'GET' });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Could not load installed Ollama models.');
+        }
+
+        const names = Array.isArray(payload.models) ? payload.models : [];
+        setOllamaModels(names);
+        setOllamaFetchWarning('');
+      } catch {
+        setOllamaModels([]);
+        setOllamaFetchWarning('Could not load installed Ollama models. You can still type a model manually.');
+      }
+    };
+
+    void loadModels();
+  }, [provider]);
 
   const handleProviderChange = (newProvider: string) => {
     setProvider(newProvider);
@@ -100,6 +135,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
       ...currentModels,
       [provider]: newModel,
     }));
+
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -227,16 +263,47 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
 
           <div className="settings-model-field">
             <label htmlFor="settings-model">Model</label>
-            <select
-              id="settings-model"
-              value={model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              aria-invalid={Boolean(fieldErrors.model?.[0])}
-            >
-              {MODEL_OPTIONS[provider]?.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+            {provider === 'ollama' ? (
+              <>
+                {ollamaModels.length > 0 ? (
+                  <>
+                    <select
+                      id="settings-model"
+                      value={model}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      aria-invalid={Boolean(fieldErrors.model?.[0])}
+                    >
+                      <option value="">Choose an installed model</option>
+                      {ollamaModels.map((modelName) => (
+                        <option key={modelName} value={modelName}>{modelName}</option>
+                      ))}
+                    </select>
+
+                    <p>{ollamaModels.length} installed model{ollamaModels.length === 1 ? '' : 's'} detected from Ollama.</p>
+                  </>
+                ) : (
+                  <select id="settings-model" value="" disabled aria-invalid={Boolean(fieldErrors.model?.[0])}>
+                    <option value="">No models available</option>
+                  </select>
+                )}
+                {ollamaFetchWarning && (
+                  <p className="settings-field-error">
+                    <TriangleAlert size={14} /> {ollamaFetchWarning}
+                  </p>
+                )}
+              </>
+            ) : (
+              <select
+                id="settings-model"
+                value={model}
+                onChange={(e) => handleModelChange(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.model?.[0])}
+              >
+                {MODEL_OPTIONS[provider]?.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            )}
             {fieldErrors.model?.[0] && <p className="settings-field-error">{fieldErrors.model[0]}</p>}
           </div>
 
@@ -262,30 +329,38 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
               )}
             </div>
 
-            <label className="settings-secret-field">
-              <KeyRound size={18} />
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setFieldErrors((current) => {
-                    const next = { ...current };
-                    delete next.newKey;
-                    return next;
-                  });
-                }}
-                placeholder={hasKeySet ? 'Enter a new key only if you want to replace it' : `Paste ${selectedProvider?.label || provider} API key`}
-                aria-invalid={Boolean(fieldErrors.newKey?.[0])}
-              />
-            </label>
+            {provider === 'ollama' ? (
+              <p>
+                Ollama runs through the server endpoint configured with <code>OLLAMA_BASE_URL</code>. No user API key is required.
+              </p>
+            ) : (
+              <>
+                <label className="settings-secret-field">
+                  <KeyRound size={18} />
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => {
+                      setApiKey(e.target.value);
+                      setFieldErrors((current) => {
+                        const next = { ...current };
+                        delete next.newKey;
+                        return next;
+                      });
+                    }}
+                    placeholder={hasKeySet ? 'Enter a new key only if you want to replace it' : `Paste ${selectedProvider?.label || provider} API key`}
+                    aria-invalid={Boolean(fieldErrors.newKey?.[0])}
+                  />
+                </label>
 
-            {fieldErrors.newKey?.[0] && <p className="settings-field-error">{fieldErrors.newKey[0]}</p>}
-            <p>
-              {hasKeySet
-                ? 'Leave this field empty to keep the existing encrypted key.'
-                : 'A key is required before this provider can be activated.'}
-            </p>
+                {fieldErrors.newKey?.[0] && <p className="settings-field-error">{fieldErrors.newKey[0]}</p>}
+                <p>
+                  {hasKeySet
+                    ? 'Leave this field empty to keep the existing encrypted key.'
+                    : 'A key is required before this provider can be activated.'}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="settings-actions">

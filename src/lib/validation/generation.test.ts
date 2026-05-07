@@ -12,6 +12,22 @@ describe('generationRequestSchema', () => {
       success: true,
       data: {
         applicationId: 'app_123',
+        save: true,
+      },
+    });
+  });
+
+  it('accepts save false for non-persisted generation', () => {
+    const result = validateWithSchema(generationRequestSchema, {
+      applicationId: 'app_123',
+      save: false,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        applicationId: 'app_123',
+        save: false,
       },
     });
   });
