@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { ProfessionalAtsSnapshot } from '@/lib/cv/professionalAts';
+import type { CvSectionId, ProfessionalAtsSnapshot } from '@/lib/cv/professionalAts';
 
 const styles = StyleSheet.create({
   page: {
@@ -103,9 +103,11 @@ const hasText = (value: string): boolean => value.trim().length > 0;
 
 interface ProfessionalAtsTemplateProps {
   snapshot: ProfessionalAtsSnapshot;
+  hiddenSections?: CvSectionId[];
 }
 
-export function ProfessionalAtsTemplate({ snapshot }: ProfessionalAtsTemplateProps) {
+export function ProfessionalAtsTemplate({ snapshot, hiddenSections = [] }: ProfessionalAtsTemplateProps) {
+  const hiddenSet = new Set(hiddenSections);
   const contactParts = [
     snapshot.header.location,
     snapshot.header.email,
@@ -114,6 +116,158 @@ export function ProfessionalAtsTemplate({ snapshot }: ProfessionalAtsTemplatePro
     snapshot.header.portfolio_url ? shortUrl(snapshot.header.portfolio_url) : '',
     snapshot.header.github_url ? shortUrl(snapshot.header.github_url) : '',
   ].filter(hasText);
+
+  const visibleSkills = [...snapshot.skills]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const visibleExperience = [...snapshot.experience]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((entry) => ({
+      ...entry,
+      bullets: [...entry.bullets]
+        .filter((bullet) => bullet.visible)
+        .sort((a, b) => a.sort_order - b.sort_order),
+    }));
+  const visibleProjects = [...snapshot.projects]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((entry) => ({
+      ...entry,
+      bullets: [...entry.bullets]
+        .filter((bullet) => bullet.visible)
+        .sort((a, b) => a.sort_order - b.sort_order),
+    }));
+  const visibleEducation = [...snapshot.education]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const visibleCertifications = [...snapshot.certifications]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const visibleLanguages = [...snapshot.languages]
+    .filter((entry) => entry.visible)
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  const sectionOrder = snapshot.section_order;
+
+  const renderSection = (sectionId: CvSectionId) => {
+    if (hiddenSet.has(sectionId)) return null;
+
+    if (sectionId === 'summary' && hasText(snapshot.summary)) {
+      return (
+        <View style={styles.section} key="summary">
+          <Text style={styles.sectionTitle}>Professional Summary</Text>
+          <Text style={styles.paragraph}>{snapshot.summary}</Text>
+        </View>
+      );
+    }
+
+    if (sectionId === 'skills' && visibleSkills.length > 0) {
+      return (
+        <View style={styles.section} key="skills">
+          <Text style={styles.sectionTitle}>Skills</Text>
+          <Text style={styles.inlineList}>{visibleSkills.map((skill) => skill.name).join(', ')}</Text>
+        </View>
+      );
+    }
+
+    if (sectionId === 'experience' && visibleExperience.length > 0) {
+      return (
+        <View style={styles.section} key="experience">
+          <Text style={styles.sectionTitle}>Work Experience</Text>
+          {visibleExperience.map((entry) => (
+            <View key={entry.id} style={styles.entry}>
+              <View style={styles.entryTop}>
+                <Text style={styles.entryTitle}>{entry.title || 'Role'}</Text>
+                <Text style={styles.date}>{formatRange(entry.start_date, entry.end_date, entry.is_current)}</Text>
+              </View>
+              <Text style={styles.entryMeta}>{entry.company}</Text>
+              {entry.bullets.slice(0, 5).map((bullet) => (
+                <Text key={bullet.id} style={styles.bullet}>- {bullet.text}</Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (sectionId === 'projects' && visibleProjects.length > 0) {
+      return (
+        <View style={styles.section} key="projects">
+          <Text style={styles.sectionTitle}>Projects</Text>
+          {visibleProjects.map((entry) => {
+            const metaParts = [
+              entry.tech_stack.length > 0 ? entry.tech_stack.join(', ') : '',
+              entry.url ? shortUrl(entry.url) : '',
+            ].filter(hasText);
+
+            return (
+              <View key={entry.id} style={styles.entry}>
+                <Text style={styles.entryTitle}>{entry.name || 'Project'}</Text>
+                {metaParts.length > 0 && <Text style={styles.entryMeta}>{metaParts.join(' | ')}</Text>}
+                {(entry.bullets.length > 0 ? entry.bullets : [{ id: `${entry.id}-fallback`, text: entry.description, visible: true, sort_order: 0 }])
+                  .filter((bullet) => hasText(bullet.text))
+                  .slice(0, 3)
+                  .map((bullet) => (
+                    <Text key={bullet.id} style={styles.bullet}>- {bullet.text}</Text>
+                  ))}
+              </View>
+            );
+          })}
+        </View>
+      );
+    }
+
+    if (sectionId === 'education' && visibleEducation.length > 0) {
+      return (
+        <View style={styles.section} key="education">
+          <Text style={styles.sectionTitle}>Education</Text>
+          {visibleEducation.map((entry) => (
+            <View key={entry.id} style={styles.entry}>
+              <View style={styles.entryTop}>
+                <Text style={styles.entryTitle}>{[entry.degree, entry.field].filter(hasText).join(' in ') || entry.degree || entry.field}</Text>
+                <Text style={styles.date}>{formatRange(entry.start_date, entry.end_date, false)}</Text>
+              </View>
+              <Text style={styles.entryMeta}>{entry.institution}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (sectionId === 'certifications' && visibleCertifications.length > 0) {
+      return (
+        <View style={styles.section} key="certifications">
+          <Text style={styles.sectionTitle}>Certifications</Text>
+          {visibleCertifications.map((entry) => {
+            const parts = [
+              entry.name,
+              entry.issuer,
+              formatMonthYear(entry.issued_date),
+              entry.url ? shortUrl(entry.url) : '',
+            ].filter(hasText);
+
+            return (
+              <Text key={entry.id} style={styles.paragraph}>{parts.join(' | ')}</Text>
+            );
+          })}
+        </View>
+      );
+    }
+
+    if (sectionId === 'languages' && visibleLanguages.length > 0) {
+      return (
+        <View style={styles.section} key="languages">
+          <Text style={styles.sectionTitle}>Languages</Text>
+          <Text style={styles.inlineList}>
+            {visibleLanguages.map((entry) => `${entry.name}${hasText(entry.proficiency) ? ` - ${entry.proficiency}` : ''}`).join(' | ')}
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <Document>
@@ -124,104 +278,7 @@ export function ProfessionalAtsTemplate({ snapshot }: ProfessionalAtsTemplatePro
           {contactParts.length > 0 && <Text style={styles.contact}>{contactParts.join(' | ')}</Text>}
         </View>
 
-        {hasText(snapshot.summary) && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Professional Summary</Text>
-            <Text style={styles.paragraph}>{snapshot.summary}</Text>
-          </View>
-        )}
-
-        {snapshot.skills.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Skills</Text>
-            <Text style={styles.inlineList}>{snapshot.skills.map((skill) => skill.name).join(', ')}</Text>
-          </View>
-        )}
-
-        {snapshot.experience.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Work Experience</Text>
-            {snapshot.experience.map((entry) => (
-              <View key={entry.id} style={styles.entry}>
-                <View style={styles.entryTop}>
-                  <Text style={styles.entryTitle}>{entry.title || 'Role'}</Text>
-                  <Text style={styles.date}>{formatRange(entry.start_date, entry.end_date, entry.is_current)}</Text>
-                </View>
-                <Text style={styles.entryMeta}>{entry.company}</Text>
-                {entry.bullets.slice(0, 5).map((bullet) => (
-                  <Text key={bullet.id} style={styles.bullet}>- {bullet.text}</Text>
-                ))}
-              </View>
-            ))}
-          </View>
-        )}
-
-        {snapshot.projects.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Projects</Text>
-            {snapshot.projects.map((entry) => {
-              const metaParts = [
-                entry.tech_stack.length > 0 ? entry.tech_stack.join(', ') : '',
-                entry.url ? shortUrl(entry.url) : '',
-              ].filter(hasText);
-
-              return (
-                <View key={entry.id} style={styles.entry}>
-                  <Text style={styles.entryTitle}>{entry.name || 'Project'}</Text>
-                  {metaParts.length > 0 && <Text style={styles.entryMeta}>{metaParts.join(' | ')}</Text>}
-                  {(entry.bullets.length > 0 ? entry.bullets : [{ id: `${entry.id}-fallback`, text: entry.description, visible: true, sort_order: 0 }])
-                    .filter((bullet) => hasText(bullet.text))
-                    .slice(0, 3)
-                    .map((bullet) => (
-                      <Text key={bullet.id} style={styles.bullet}>- {bullet.text}</Text>
-                    ))}
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {snapshot.education.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Education</Text>
-            {snapshot.education.map((entry) => (
-              <View key={entry.id} style={styles.entry}>
-                <View style={styles.entryTop}>
-                  <Text style={styles.entryTitle}>{[entry.degree, entry.field].filter(hasText).join(' in ') || entry.degree || entry.field}</Text>
-                  <Text style={styles.date}>{formatRange(entry.start_date, entry.end_date, false)}</Text>
-                </View>
-                <Text style={styles.entryMeta}>{entry.institution}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {snapshot.certifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Certifications</Text>
-            {snapshot.certifications.map((entry) => {
-              const parts = [
-                entry.name,
-                entry.issuer,
-                formatMonthYear(entry.issued_date),
-                entry.url ? shortUrl(entry.url) : '',
-              ].filter(hasText);
-
-              return (
-                <Text key={entry.id} style={styles.paragraph}>{parts.join(' | ')}</Text>
-              );
-            })}
-          </View>
-        )}
-
-        {snapshot.languages.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Languages</Text>
-            <Text style={styles.inlineList}>
-              {snapshot.languages.map((entry) => `${entry.name}${hasText(entry.proficiency) ? ` - ${entry.proficiency}` : ''}`).join(' | ')}
-            </Text>
-          </View>
-        )}
+        {sectionOrder.map((sectionId) => renderSection(sectionId))}
       </Page>
     </Document>
   );

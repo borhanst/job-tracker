@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Edit3 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Edit3, EyeOff } from 'lucide-react';
 import type {
   CvBullet,
   CvCertificationEntry,
@@ -10,6 +10,7 @@ import type {
   CvLanguageEntry,
   CvProjectEntry,
   CvSkillEntry,
+  CvSectionId,
   ProfessionalAtsSnapshot,
 } from '@/lib/cv/professionalAts';
 import ProfessionalAtsPreview from './ProfessionalAtsPreview';
@@ -35,6 +36,7 @@ function SectionPanel({ title, children }: { title: string; children: React.Reac
 
 export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }: ProfessionalAtsBuilderProps) {
   const [snapshot, setSnapshot] = useState<ProfessionalAtsSnapshot>(() => cloneSnapshot(initialSnapshot));
+  const [hiddenSections, setHiddenSections] = useState<CvSectionId[]>([]);
 
   const visibleSectionCount = useMemo(() => {
     const counts = [
@@ -58,6 +60,61 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         [key]: value,
       },
     }));
+  };
+
+  const moveItem = <T,>(items: T[], index: number, direction: -1 | 1): T[] => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= items.length) return items;
+    const clone = [...items];
+    const [target] = clone.splice(index, 1);
+    clone.splice(nextIndex, 0, target);
+    return clone;
+  };
+
+  const moveSection = (sectionId: CvSectionId, direction: -1 | 1) => {
+    setSnapshot((prev) => {
+      const index = prev.section_order.indexOf(sectionId);
+      if (index === -1) return prev;
+      const section_order = moveItem(prev.section_order, index, direction);
+      return { ...prev, section_order };
+    });
+  };
+
+  const toggleSection = (sectionId: CvSectionId) => {
+    setHiddenSections((prev) => (prev.includes(sectionId) ? prev.filter((id) => id !== sectionId) : [...prev, sectionId]));
+  };
+
+  const moveEntry = <T extends { sort_order: number }>(
+    section: keyof Pick<ProfessionalAtsSnapshot, 'skills' | 'experience' | 'projects' | 'education' | 'certifications' | 'languages'>,
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    setSnapshot((prev) => {
+      const entries = moveItem(prev[section] as T[], index, direction).map((entry, entryIndex) => ({
+        ...entry,
+        sort_order: entryIndex,
+      }));
+      return { ...prev, [section]: entries } as ProfessionalAtsSnapshot;
+    });
+  };
+
+  const moveBullet = (
+    section: 'experience' | 'projects',
+    entryIndex: number,
+    bulletIndex: number,
+    direction: -1 | 1,
+  ) => {
+    setSnapshot((prev) => {
+      const entries = [...prev[section]];
+      const entry = { ...entries[entryIndex] };
+      const bullets = moveItem(entry.bullets, bulletIndex, direction).map((bullet, index) => ({
+        ...bullet,
+        sort_order: index,
+      }));
+      entry.bullets = bullets;
+      entries[entryIndex] = entry;
+      return { ...prev, [section]: entries } as ProfessionalAtsSnapshot;
+    });
   };
 
   const updateSkill = (index: number, patch: Partial<CvSkillEntry>) => {
@@ -135,6 +192,23 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
   return (
     <div className="cv-review-desk">
       <aside className="cv-review-controls">
+        <SectionPanel title="Sections">
+          {snapshot.section_order.map((sectionId, index) => {
+            const isHidden = hiddenSections.includes(sectionId);
+
+            return (
+              <div key={sectionId} className="cv-entry-row">
+                <span className="cv-entry-label">{sectionId}</span>
+                <div className="cv-entry-actions">
+                  <button type="button" onClick={() => moveSection(sectionId, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                  <button type="button" onClick={() => moveSection(sectionId, 1)} disabled={index === snapshot.section_order.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                  <button type="button" onClick={() => toggleSection(sectionId)} className={`cv-mini-btn ${isHidden ? 'is-hidden' : ''}`} title="Toggle section visibility"><EyeOff size={14} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </SectionPanel>
+
         <SectionPanel title="Header">
           <input value={snapshot.header.full_name} onChange={(e) => updateHeader('full_name', e.target.value)} placeholder="Full name" className="cv-field" />
           <input value={snapshot.header.headline} onChange={(e) => updateHeader('headline', e.target.value)} placeholder="Target role / headline" className="cv-field" />
@@ -152,28 +226,45 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
 
         <SectionPanel title="Skills">
           {snapshot.skills.map((skill, index) => (
-            <input
-              key={skill.id}
-              value={skill.name}
-              onChange={(e) => updateSkill(index, { name: e.target.value })}
-              className="cv-field"
-            />
+            <div key={skill.id} className="cv-entry-row">
+              <input
+                value={skill.name}
+                onChange={(e) => updateSkill(index, { name: e.target.value })}
+                className="cv-field"
+              />
+              <div className="cv-entry-actions">
+                <button type="button" onClick={() => moveEntry('skills', index, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('skills', index, 1)} disabled={index === snapshot.skills.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateSkill(index, { visible: !skill.visible })} className={`cv-mini-btn ${!skill.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
+            </div>
           ))}
         </SectionPanel>
 
         <SectionPanel title="Work Experience">
           {snapshot.experience.map((entry, entryIndex) => (
             <div key={entry.id} style={{ marginBottom: 12 }}>
+              <div className="cv-entry-actions" style={{ margin: '0 1rem 0.5rem' }}>
+                <button type="button" onClick={() => moveEntry('experience', entryIndex, -1)} disabled={entryIndex === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('experience', entryIndex, 1)} disabled={entryIndex === snapshot.experience.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateExperience(entryIndex, { visible: !entry.visible })} className={`cv-mini-btn ${!entry.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
               <input value={entry.title} onChange={(e) => updateExperience(entryIndex, { title: e.target.value })} className="cv-field" placeholder="Title" />
               <input value={entry.company} onChange={(e) => updateExperience(entryIndex, { company: e.target.value })} className="cv-field" placeholder="Company" />
               {entry.bullets.map((bullet, bulletIndex) => (
-                <textarea
-                  key={bullet.id}
-                  value={bullet.text}
-                  onChange={(e) => updateExperienceBullet(entryIndex, bulletIndex, { text: e.target.value })}
-                  className="cv-field"
-                  rows={2}
-                />
+                <div key={bullet.id} className="cv-entry-row">
+                  <textarea
+                    value={bullet.text}
+                    onChange={(e) => updateExperienceBullet(entryIndex, bulletIndex, { text: e.target.value })}
+                    className="cv-field"
+                    rows={2}
+                  />
+                  <div className="cv-entry-actions">
+                    <button type="button" onClick={() => moveBullet('experience', entryIndex, bulletIndex, -1)} disabled={bulletIndex === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                    <button type="button" onClick={() => moveBullet('experience', entryIndex, bulletIndex, 1)} disabled={bulletIndex === entry.bullets.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                    <button type="button" onClick={() => updateExperienceBullet(entryIndex, bulletIndex, { visible: !bullet.visible })} className={`cv-mini-btn ${!bullet.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+                  </div>
+                </div>
               ))}
             </div>
           ))}
@@ -182,16 +273,27 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         <SectionPanel title="Projects">
           {snapshot.projects.map((entry, entryIndex) => (
             <div key={entry.id} style={{ marginBottom: 12 }}>
+              <div className="cv-entry-actions" style={{ margin: '0 1rem 0.5rem' }}>
+                <button type="button" onClick={() => moveEntry('projects', entryIndex, -1)} disabled={entryIndex === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('projects', entryIndex, 1)} disabled={entryIndex === snapshot.projects.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateProject(entryIndex, { visible: !entry.visible })} className={`cv-mini-btn ${!entry.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
               <input value={entry.name} onChange={(e) => updateProject(entryIndex, { name: e.target.value })} className="cv-field" placeholder="Project name" />
               <input value={entry.url || ''} onChange={(e) => updateProject(entryIndex, { url: e.target.value })} className="cv-field" placeholder="Project URL" />
               {entry.bullets.map((bullet, bulletIndex) => (
-                <textarea
-                  key={bullet.id}
-                  value={bullet.text}
-                  onChange={(e) => updateProjectBullet(entryIndex, bulletIndex, { text: e.target.value })}
-                  className="cv-field"
-                  rows={2}
-                />
+                <div key={bullet.id} className="cv-entry-row">
+                  <textarea
+                    value={bullet.text}
+                    onChange={(e) => updateProjectBullet(entryIndex, bulletIndex, { text: e.target.value })}
+                    className="cv-field"
+                    rows={2}
+                  />
+                  <div className="cv-entry-actions">
+                    <button type="button" onClick={() => moveBullet('projects', entryIndex, bulletIndex, -1)} disabled={bulletIndex === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                    <button type="button" onClick={() => moveBullet('projects', entryIndex, bulletIndex, 1)} disabled={bulletIndex === entry.bullets.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                    <button type="button" onClick={() => updateProjectBullet(entryIndex, bulletIndex, { visible: !bullet.visible })} className={`cv-mini-btn ${!bullet.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+                  </div>
+                </div>
               ))}
             </div>
           ))}
@@ -200,6 +302,11 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         <SectionPanel title="Education">
           {snapshot.education.map((entry, index) => (
             <div key={entry.id} style={{ marginBottom: 12 }}>
+              <div className="cv-entry-actions" style={{ margin: '0 1rem 0.5rem' }}>
+                <button type="button" onClick={() => moveEntry('education', index, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('education', index, 1)} disabled={index === snapshot.education.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateEducation(index, { visible: !entry.visible })} className={`cv-mini-btn ${!entry.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
               <input value={entry.degree} onChange={(e) => updateEducation(index, { degree: e.target.value })} className="cv-field" placeholder="Degree" />
               <input value={entry.field} onChange={(e) => updateEducation(index, { field: e.target.value })} className="cv-field" placeholder="Field" />
               <input value={entry.institution} onChange={(e) => updateEducation(index, { institution: e.target.value })} className="cv-field" placeholder="Institution" />
@@ -210,6 +317,11 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         <SectionPanel title="Certifications">
           {snapshot.certifications.map((entry, index) => (
             <div key={entry.id} style={{ marginBottom: 12 }}>
+              <div className="cv-entry-actions" style={{ margin: '0 1rem 0.5rem' }}>
+                <button type="button" onClick={() => moveEntry('certifications', index, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('certifications', index, 1)} disabled={index === snapshot.certifications.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateCertification(index, { visible: !entry.visible })} className={`cv-mini-btn ${!entry.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
               <input value={entry.name} onChange={(e) => updateCertification(index, { name: e.target.value })} className="cv-field" placeholder="Certification" />
               <input value={entry.issuer} onChange={(e) => updateCertification(index, { issuer: e.target.value })} className="cv-field" placeholder="Issuer" />
             </div>
@@ -219,6 +331,11 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
         <SectionPanel title="Languages">
           {snapshot.languages.map((entry, index) => (
             <div key={entry.id} style={{ marginBottom: 12 }}>
+              <div className="cv-entry-actions" style={{ margin: '0 1rem 0.5rem' }}>
+                <button type="button" onClick={() => moveEntry('languages', index, -1)} disabled={index === 0} className="cv-mini-btn"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => moveEntry('languages', index, 1)} disabled={index === snapshot.languages.length - 1} className="cv-mini-btn"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => updateLanguage(index, { visible: !entry.visible })} className={`cv-mini-btn ${!entry.visible ? 'is-hidden' : ''}`}><EyeOff size={14} /></button>
+              </div>
               <input value={entry.name} onChange={(e) => updateLanguage(index, { name: e.target.value })} className="cv-field" placeholder="Language" />
               <input value={entry.proficiency} onChange={(e) => updateLanguage(index, { proficiency: e.target.value })} className="cv-field" placeholder="Proficiency" />
             </div>
@@ -229,7 +346,7 @@ export default function ProfessionalAtsBuilder({ initialSnapshot, contextLabel }
           <span>Editing {visibleSectionCount} populated sections in Professional ATS mode.</span>
         </div>
       </aside>
-      <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} />
+      <ProfessionalAtsPreview snapshot={snapshot} templateLabel="professional-ats" contextLabel={contextLabel} hiddenSections={hiddenSections} />
     </div>
   );
 }

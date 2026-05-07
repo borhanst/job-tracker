@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Eye } from 'lucide-react';
 import { ProfessionalAtsTemplate } from './ProfessionalAtsTemplate';
-import type { ProfessionalAtsSnapshot } from '@/lib/cv/professionalAts';
+import type { CvSectionId, ProfessionalAtsSnapshot } from '@/lib/cv/professionalAts';
 
 const PDFViewer = dynamic(
   () => import('@react-pdf/renderer').then((mod) => mod.PDFViewer),
@@ -14,12 +14,14 @@ interface ProfessionalAtsPreviewProps {
   snapshot: ProfessionalAtsSnapshot;
   templateLabel?: string;
   contextLabel?: string;
+  hiddenSections?: CvSectionId[];
 }
 
 export default function ProfessionalAtsPreview({
   snapshot,
   templateLabel = 'professional-ats',
   contextLabel = 'General CV',
+  hiddenSections = [],
 }: ProfessionalAtsPreviewProps) {
   return (
     <section className="cv-preview-panel">
@@ -35,7 +37,7 @@ export default function ProfessionalAtsPreview({
       </div>
       <div className="cv-preview-frame">
         <PDFViewer className="cv-pdf-viewer">
-          <ProfessionalAtsTemplate snapshot={snapshot} />
+          <ProfessionalAtsTemplate snapshot={snapshot} hiddenSections={hiddenSections} />
         </PDFViewer>
       </div>
     </section>
