@@ -253,6 +253,9 @@ export default function JobDetailView({ application }: JobDetailViewProps) {
                     ? 'Your generated CV versions are shown as quick previews. Click any card to open a full-screen editing studio.'
                     : 'No CV generated yet. Start with a fresh full-screen studio and create your first version.'}
                 </p>
+                <Link href={`/applications/${application.id}/cv-builder`} className="application-cv-open-link">
+                  Open dedicated CV Builder page
+                </Link>
               </div>
 
               <div className="application-cv-gallery">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProfessionalAtsSnapshot,
+  buildProfessionalAtsSnapshotForApplication,
   DEFAULT_PROFESSIONAL_ATS_ORDER,
 } from './professionalAts';
 
@@ -65,5 +66,21 @@ describe('buildProfessionalAtsSnapshot', () => {
     expect(snapshot.certifications).toEqual([]);
     expect(snapshot.languages).toEqual([]);
     expect(snapshot.skills).toEqual([]);
+  });
+
+  it('uses application job title as default headline', () => {
+    const snapshot = buildProfessionalAtsSnapshotForApplication(
+      {
+        full_name: 'Alex Rahman',
+        summary: 'Frontend engineer',
+      },
+      {
+        job_data: {
+          title: 'Senior Frontend Engineer',
+        },
+      },
+    );
+
+    expect(snapshot.header.headline).toBe('Senior Frontend Engineer');
   });
 });

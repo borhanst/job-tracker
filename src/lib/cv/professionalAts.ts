@@ -241,3 +241,14 @@ export function buildProfessionalAtsSnapshot(profile: any): ProfessionalAtsSnaps
     section_order: [...DEFAULT_PROFESSIONAL_ATS_ORDER],
   };
 }
+
+export function buildProfessionalAtsSnapshotForApplication(profile: any, application: any): ProfessionalAtsSnapshot {
+  const snapshot = buildProfessionalAtsSnapshot(profile);
+  const jobTitle = cleanText(application?.job_data?.title);
+
+  if (jobTitle) {
+    snapshot.header.headline = jobTitle;
+  }
+
+  return snapshot;
+}

@@ -12,9 +12,15 @@ const PDFViewer = dynamic(
 
 interface ProfessionalAtsPreviewProps {
   snapshot: ProfessionalAtsSnapshot;
+  templateLabel?: string;
+  contextLabel?: string;
 }
 
-export default function ProfessionalAtsPreview({ snapshot }: ProfessionalAtsPreviewProps) {
+export default function ProfessionalAtsPreview({
+  snapshot,
+  templateLabel = 'professional-ats',
+  contextLabel = 'General CV',
+}: ProfessionalAtsPreviewProps) {
   return (
     <section className="cv-preview-panel">
       <div className="cv-preview-panel__topbar">
@@ -23,8 +29,8 @@ export default function ProfessionalAtsPreview({ snapshot }: ProfessionalAtsPrev
           <h4>{snapshot.header.full_name || 'Candidate'}</h4>
         </div>
         <div className="cv-preview-meta">
-          <strong>professional-ats</strong>
-          <span>General CV</span>
+          <strong>{templateLabel}</strong>
+          <span>{contextLabel}</span>
         </div>
       </div>
       <div className="cv-preview-frame">
